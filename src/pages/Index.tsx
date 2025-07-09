@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Bot, BookOpen, Settings, FileText, Zap, Upload, Wand2, HelpCircle } from 'lucide-react';
+import { Bot, BookOpen, Settings, FileText, Zap, Upload, Wand2, HelpCircle, Info, LifeBuoy } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChatInterface } from '@/components/ChatInterface';
@@ -9,6 +9,8 @@ import { ModuleManager } from '@/components/ModuleManager';
 import { DocumentManager } from '@/components/DocumentManager';
 import { CourseGenerator } from '@/components/CourseGenerator';
 import { QCMManager } from '@/components/QCMManager';
+import { UserGuide } from '@/components/UserGuide';
+import { AppStatus } from '@/components/AppStatus';
 import { AIProvider } from '@/contexts/AIContext';
 
 const Dashboard = () => (
@@ -185,6 +187,14 @@ const Index = () => {
                   <HelpCircle className="h-4 w-4" />
                   QCM
                 </TabsTrigger>
+                <TabsTrigger value="guide" className="flex items-center gap-2">
+                  <LifeBuoy className="h-4 w-4" />
+                  Guide
+                </TabsTrigger>
+                <TabsTrigger value="status" className="flex items-center gap-2">
+                  <Info className="h-4 w-4" />
+                  État
+                </TabsTrigger>
                 <TabsTrigger value="admin" className="flex items-center gap-2">
                   <Settings className="h-4 w-4" />
                   Administration
@@ -218,6 +228,14 @@ const Index = () => {
             
             <TabsContent value="qcm" className="m-0 h-full">
               <QCMManager />
+            </TabsContent>
+            
+            <TabsContent value="guide" className="m-0 h-full">
+              <UserGuide />
+            </TabsContent>
+            
+            <TabsContent value="status" className="m-0 h-full">
+              <AppStatus />
             </TabsContent>
             
             <TabsContent value="admin" className="m-0 h-full">

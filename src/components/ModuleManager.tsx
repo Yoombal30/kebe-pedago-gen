@@ -214,16 +214,18 @@ export const ModuleManager: React.FC = () => {
               <div className="flex items-start justify-between">
                 <div>
                   <CardTitle className="text-lg">{module.title}</CardTitle>
-                  <CardDescription className="flex items-center gap-4 mt-2">
+                  <div className="flex items-center gap-4 mt-2">
                     <div className="flex items-center gap-1">
                       <Clock className="h-4 w-4" />
-                      {module.duration}h
+                      <span className="text-sm text-muted-foreground">{module.duration}h</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Target className="h-4 w-4" />
-                      {module.knowledge.length} savoirs, {module.skills.length} savoir-faire
+                      <span className="text-sm text-muted-foreground">
+                        {module.knowledge.length} savoirs, {module.skills.length} savoir-faire
+                      </span>
                     </div>
-                  </CardDescription>
+                  </div>
                 </div>
                 
                 <div className="flex gap-2">
