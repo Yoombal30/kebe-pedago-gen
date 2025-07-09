@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { ChatMessage, AIEngine, AdminSettings, LogEntry } from '@/types';
 import { aiService, AIResponse } from '@/services/aiService';
@@ -7,6 +6,7 @@ interface AIContextType {
   messages: ChatMessage[];
   isTyping: boolean;
   activeEngine: AIEngine | null;
+  isConnected: boolean;
   adminSettings: AdminSettings;
   sendMessage: (content: string) => Promise<void>;
   clearChat: () => void;
@@ -106,6 +106,7 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     engines: DEFAULT_ENGINES,
     logs: []
   });
+  const [isConnected, setIsConnected] = useState(false);
 
   const addLog = useCallback((level: LogEntry['level'], message: string, engine?: string) => {
     const newLog: LogEntry = {
@@ -190,6 +191,28 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     setAdminSettings(prev => ({ ...prev, ...settings }));
   }, []);
 
+  // Fonction pour vérifier la connexion du moteur actif
+  const checkConnection = useCallback(async () => {
+    if (!activeEngine) {
+      setIsConnected(false);
+      return;
+    }
+
+    try {
+      const success = await aiService.testEngine(activeEngine);
+      setIsConnected(success);
+      
+      if (success) {
+        addLog('info', `Connexion vérifiée pour ${activeEngine.name}`, activeEngine.id);
+      } else {
+        addLog('warning', `Connexion échouée pour ${activeEngine.name}`, activeEngine.id);
+      }
+    } catch (error) {
+      setIsConnected(false);
+      addLog('error', `Erreur de connexion pour ${activeEngine.name}`, activeEngine.id);
+    }
+  }, [activeEngine, addLog]);
+
   const testEngine = useCallback(async (engineId: string): Promise<boolean> => {
     const engine = adminSettings.engines.find(e => e.id === engineId);
     if (!engine) return false;
@@ -201,16 +224,28 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       
       if (success) {
         addLog('info', `Test réussi pour ${engine.name}`, engineId);
+        // Si c'est le moteur actif, mettre à jour le statut de connexion
+        if (activeEngine?.id === engineId) {
+          setIsConnected(true);
+        }
       } else {
         addLog('error', `Test échoué pour ${engine.name}`, engineId);
+        // Si c'est le moteur actif, mettre à jour le statut de connexion
+        if (activeEngine?.id === engineId) {
+          setIsConnected(false);
+        }
       }
       
       return success;
     } catch (error) {
       addLog('error', `Erreur test ${engine.name}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`, engineId);
+      // Si c'est le moteur actif, mettre à jour le statut de connexion
+      if (activeEngine?.id === engineId) {
+        setIsConnected(false);
+      }
       return false;
     }
-  }, [adminSettings.engines, addLog]);
+  }, [adminSettings.engines, activeEngine, addLog]);
 
   const addEngine = useCallback((engineData: Omit<AIEngine, 'id'>) => {
     const newEngine: AIEngine = {
@@ -258,7 +293,23 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     }));
 
     addLog('info', `Moteur activé: ${engine.name}`, engineId);
-  }, [adminSettings.engines, addLog]);
+    
+    // Vérifier la connexion du nouveau moteur actif
+    checkConnection();
+  }, [adminSettings.engines, addLog, checkConnection]);
+
+  // Vérifier la connexion périodiquement
+  useEffect(() => {
+    if (activeEngine) {
+      checkConnection();
+      
+      // Vérifier la connexion toutes les 30 secondes
+      const interval = setInterval(checkConnection, 30000);
+      return () => clearInterval(interval);
+    } else {
+      setIsConnected(false);
+    }
+  }, [activeEngine, checkConnection]);
 
   // Initialiser le moteur actif au démarrage
   useEffect(() => {
@@ -276,6 +327,7 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       messages,
       isTyping,
       activeEngine,
+      isConnected,
       adminSettings,
       sendMessage,
       clearChat,
