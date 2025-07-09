@@ -1,11 +1,14 @@
 
 import React from 'react';
-import { Bot, BookOpen, Settings, FileText, Zap } from 'lucide-react';
+import { Bot, BookOpen, Settings, FileText, Zap, Upload, Wand2, HelpCircle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChatInterface } from '@/components/ChatInterface';
 import { AdminPanel } from '@/components/AdminPanel';
 import { ModuleManager } from '@/components/ModuleManager';
+import { DocumentManager } from '@/components/DocumentManager';
+import { CourseGenerator } from '@/components/CourseGenerator';
+import { QCMManager } from '@/components/QCMManager';
 import { AIProvider } from '@/contexts/AIContext';
 
 const Dashboard = () => (
@@ -170,6 +173,18 @@ const Index = () => {
                   <BookOpen className="h-4 w-4" />
                   Modules
                 </TabsTrigger>
+                <TabsTrigger value="documents" className="flex items-center gap-2">
+                  <Upload className="h-4 w-4" />
+                  Documents
+                </TabsTrigger>
+                <TabsTrigger value="generator" className="flex items-center gap-2">
+                  <Wand2 className="h-4 w-4" />
+                  Générateur
+                </TabsTrigger>
+                <TabsTrigger value="qcm" className="flex items-center gap-2">
+                  <HelpCircle className="h-4 w-4" />
+                  QCM
+                </TabsTrigger>
                 <TabsTrigger value="admin" className="flex items-center gap-2">
                   <Settings className="h-4 w-4" />
                   Administration
@@ -191,6 +206,18 @@ const Index = () => {
             
             <TabsContent value="modules" className="m-0 h-full">
               <ModuleManager />
+            </TabsContent>
+            
+            <TabsContent value="documents" className="m-0 h-full">
+              <DocumentManager />
+            </TabsContent>
+            
+            <TabsContent value="generator" className="m-0 h-full">
+              <CourseGenerator />
+            </TabsContent>
+            
+            <TabsContent value="qcm" className="m-0 h-full">
+              <QCMManager />
             </TabsContent>
             
             <TabsContent value="admin" className="m-0 h-full">
