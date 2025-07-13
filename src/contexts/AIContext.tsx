@@ -51,6 +51,17 @@ const DEFAULT_ENGINES: AIEngine[] = [
     }
   },
   {
+    id: 'simulation-mode',
+    name: 'Mode Simulation (Local)',
+    type: 'local',
+    status: 'inactive',
+    config: {
+      model: 'professeur-kebe-simulation',
+      port: 0,
+      endpoint: 'local://simulation'
+    }
+  },
+  {
     id: 'ollama-local',
     name: 'Ollama (Local)',
     type: 'local',
@@ -115,7 +126,7 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     {
       id: '1',
       role: 'assistant',
-      content: 'Bonjour ! Je suis le Professeur KEBE, votre assistant IA pédagogique. Comment puis-je vous aider aujourd\'hui ?',
+      content: 'Bonjour ! Je suis le Professeur KEBE, votre assistant IA pédagogique.\n\n🎯 **Prêt à travailler ensemble !**\n\nJe peux vous aider à :\n- Créer des modules de formation\n- Générer des cours complets\n- Concevoir des QCM\n- Structurer vos contenus pédagogiques\n\nComment puis-je vous assister aujourd\'hui ?',
       timestamp: new Date(),
       type: 'text'
     }
@@ -201,7 +212,7 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       {
         id: '1',
         role: 'assistant',
-        content: 'Chat effacé. Comment puis-je vous aider ?',
+        content: '🔄 **Chat réinitialisé**\n\nJe suis le Professeur KEBE, prêt pour une nouvelle session !\n\nComment puis-je vous aider avec vos projets pédagogiques ?',
         timestamp: new Date(),
         type: 'text'
       }

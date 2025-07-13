@@ -11,6 +11,7 @@ import { CourseGenerator } from '@/components/CourseGenerator';
 import { QCMManager } from '@/components/QCMManager';
 import { UserGuide } from '@/components/UserGuide';
 import { AppStatus } from '@/components/AppStatus';
+import { StatusIndicator } from '@/components/StatusIndicator';
 import { AIProvider } from '@/contexts/AIContext';
 
 const Dashboard = () => (
@@ -162,44 +163,53 @@ const Index = () => {
         <Tabs defaultValue="dashboard" className="h-screen flex flex-col">
           <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="container">
-              <TabsList className="h-12">
-                <TabsTrigger value="dashboard" className="flex items-center gap-2">
-                  <Bot className="h-4 w-4" />
-                  Tableau de bord
-                </TabsTrigger>
-                <TabsTrigger value="chat" className="flex items-center gap-2">
-                  <Bot className="h-4 w-4" />
-                  Chat IA
-                </TabsTrigger>
-                <TabsTrigger value="modules" className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4" />
-                  Modules
-                </TabsTrigger>
-                <TabsTrigger value="documents" className="flex items-center gap-2">
-                  <Upload className="h-4 w-4" />
-                  Documents
-                </TabsTrigger>
-                <TabsTrigger value="generator" className="flex items-center gap-2">
-                  <Wand2 className="h-4 w-4" />
-                  Générateur
-                </TabsTrigger>
-                <TabsTrigger value="qcm" className="flex items-center gap-2">
-                  <HelpCircle className="h-4 w-4" />
-                  QCM
-                </TabsTrigger>
-                <TabsTrigger value="guide" className="flex items-center gap-2">
-                  <LifeBuoy className="h-4 w-4" />
-                  Guide
-                </TabsTrigger>
-                <TabsTrigger value="status" className="flex items-center gap-2">
-                  <Info className="h-4 w-4" />
-                  État
-                </TabsTrigger>
-                <TabsTrigger value="admin" className="flex items-center gap-2">
-                  <Settings className="h-4 w-4" />
-                  Administration
-                </TabsTrigger>
-              </TabsList>
+              <div className="flex items-center justify-between">
+                <TabsList className="h-12">
+                  <TabsTrigger value="dashboard" className="flex items-center gap-2">
+                    <Bot className="h-4 w-4" />
+                    Tableau de bord
+                  </TabsTrigger>
+                  <TabsTrigger value="chat" className="flex items-center gap-2">
+                    <Bot className="h-4 w-4" />
+                    Chat IA
+                  </TabsTrigger>
+                  <TabsTrigger value="modules" className="flex items-center gap-2">
+                    <BookOpen className="h-4 w-4" />
+                    Modules
+                  </TabsTrigger>
+                  <TabsTrigger value="documents" className="flex items-center gap-2">
+                    <Upload className="h-4 w-4" />
+                    Documents
+                  </TabsTrigger>
+                  <TabsTrigger value="generator" className="flex items-center gap-2">
+                    <Wand2 className="h-4 w-4" />
+                    Générateur
+                  </TabsTrigger>
+                  <TabsTrigger value="qcm" className="flex items-center gap-2">
+                    <HelpCircle className="h-4 w-4" />
+                    QCM
+                  </TabsTrigger>
+                  <TabsTrigger value="guide" className="flex items-center gap-2">
+                    <LifeBuoy className="h-4 w-4" />
+                    Guide
+                  </TabsTrigger>
+                  <TabsTrigger value="status" className="flex items-center gap-2">
+                    <Info className="h-4 w-4" />
+                    État
+                  </TabsTrigger>
+                  <TabsTrigger value="admin" className="flex items-center gap-2">
+                    <Settings className="h-4 w-4" />
+                    Administration
+                  </TabsTrigger>
+                </TabsList>
+                
+                <div className="flex items-center gap-3">
+                  <StatusIndicator />
+                  <div className="text-sm text-muted-foreground">
+                    Professeur KEBE v2.0
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           
