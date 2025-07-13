@@ -48,60 +48,76 @@ export class AIService {
 
   private async sendToLocalEngine(message: string, config: LocalAIConfig): Promise<AIResponse> {
     try {
-      // Pour les endpoints ngrok/colab, essayer d'abord l'API Ollama standard
-      const response = await fetch(`${config.endpoint}/api/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true', // Header pour ngrok
-        },
-        body: JSON.stringify({
-          model: config.model,
+      console.log('Tentative de connexion à:', config.endpoint);
+      
+      // Headers spéciaux pour ngrok et CORS
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+        'Accept': 'application/json',
+      };
+
+      // Payload pour Ollama
+      const payload = {
+        model: config.model,
+        prompt: `Tu es le Professeur KEBE, un expert pédagogique spécialisé dans la création de contenus de formation. Réponds de manière structurée et pédagogique.\n\nQuestion: ${message}`,
+        stream: false,
+        options: {
+          temperature: 0.7,
+          top_p: 0.9,
+        }
+      };
+
+      console.log('Payload envoyé:', payload);
+
+      // Essayer l'API Ollama standard
+      let response: Response;
+      try {
+        response = await fetch(`${config.endpoint}/api/generate`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+          mode: 'cors',
+        });
+      } catch (fetchError) {
+        console.log('Erreur API Ollama, essai endpoint direct:', fetchError);
+        
+        // Fallback: essayer l'endpoint direct avec un format différent
+        const simplePayload = {
           prompt: `Tu es le Professeur KEBE, un expert pédagogique spécialisé dans la création de contenus de formation. Réponds de manière structurée et pédagogique.\n\nQuestion: ${message}`,
-          stream: false,
-          options: {
-            temperature: 0.7,
-            top_p: 0.9,
-          }
-        }),
-      });
+          max_tokens: 1500,
+          temperature: 0.7
+        };
+
+        response = await fetch(config.endpoint, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(simplePayload),
+          mode: 'cors',
+        });
+      }
 
       if (!response.ok) {
-        // Si l'API Ollama échoue, essayer un appel direct (format simple)
-        const fallbackResponse = await fetch(config.endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true',
-          },
-          body: JSON.stringify({
-            prompt: `Tu es le Professeur KEBE, un expert pédagogique spécialisé dans la création de contenus de formation. Réponds de manière structurée et pédagogique.\n\nQuestion: ${message}`,
-            max_tokens: 1500,
-            temperature: 0.7
-          }),
-        });
-
-        if (!fallbackResponse.ok) {
-          throw new Error(`Erreur HTTP: ${response.status} - ${response.statusText}`);
-        }
-
-        const fallbackData = await fallbackResponse.json();
-        return {
-          content: fallbackData.response || fallbackData.text || fallbackData.content || 'Réponse reçue',
-          success: true
-        };
+        const errorText = await response.text().catch(() => 'Erreur inconnue');
+        console.error('Réponse HTTP non-OK:', response.status, errorText);
+        throw new Error(`Erreur HTTP ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
+      console.log('Réponse reçue:', data);
+      
+      const content = data.response || data.text || data.content || data.choices?.[0]?.message?.content || 'Réponse reçue du modèle';
+      
       return {
-        content: data.response || data.text || 'Réponse vide',
+        content,
         success: true
       };
     } catch (error) {
+      console.error('Erreur complète:', error);
       return {
         content: '',
         success: false,
-        error: error instanceof Error ? error.message : 'Erreur de connexion'
+        error: error instanceof Error ? error.message : 'Erreur de connexion au moteur IA'
       };
     }
   }
