@@ -47,31 +47,63 @@ export class AIService {
   }
 
   private async sendToLocalEngine(message: string, config: LocalAIConfig): Promise<AIResponse> {
-    const response = await fetch(`${config.endpoint}/api/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: config.model,
-        prompt: `Tu es le Professeur KEBE, un expert pédagogique spécialisé dans la création de contenus de formation. Réponds de manière structurée et pédagogique.\n\nQuestion: ${message}`,
-        stream: false,
-        options: {
-          temperature: 0.7,
-          top_p: 0.9,
+    try {
+      // Pour les endpoints ngrok/colab, essayer d'abord l'API Ollama standard
+      const response = await fetch(`${config.endpoint}/api/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true', // Header pour ngrok
+        },
+        body: JSON.stringify({
+          model: config.model,
+          prompt: `Tu es le Professeur KEBE, un expert pédagogique spécialisé dans la création de contenus de formation. Réponds de manière structurée et pédagogique.\n\nQuestion: ${message}`,
+          stream: false,
+          options: {
+            temperature: 0.7,
+            top_p: 0.9,
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        // Si l'API Ollama échoue, essayer un appel direct (format simple)
+        const fallbackResponse = await fetch(config.endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true',
+          },
+          body: JSON.stringify({
+            prompt: `Tu es le Professeur KEBE, un expert pédagogique spécialisé dans la création de contenus de formation. Réponds de manière structurée et pédagogique.\n\nQuestion: ${message}`,
+            max_tokens: 1500,
+            temperature: 0.7
+          }),
+        });
+
+        if (!fallbackResponse.ok) {
+          throw new Error(`Erreur HTTP: ${response.status} - ${response.statusText}`);
         }
-      }),
-    });
 
-    if (!response.ok) {
-      throw new Error(`Erreur HTTP: ${response.status}`);
+        const fallbackData = await fallbackResponse.json();
+        return {
+          content: fallbackData.response || fallbackData.text || fallbackData.content || 'Réponse reçue',
+          success: true
+        };
+      }
+
+      const data = await response.json();
+      return {
+        content: data.response || data.text || 'Réponse vide',
+        success: true
+      };
+    } catch (error) {
+      return {
+        content: '',
+        success: false,
+        error: error instanceof Error ? error.message : 'Erreur de connexion'
+      };
     }
-
-    const data = await response.json();
-    return {
-      content: data.response || data.text || 'Réponse vide',
-      success: true
-    };
   }
 
   private async sendToRemoteEngine(message: string, config: RemoteAIConfig): Promise<AIResponse> {

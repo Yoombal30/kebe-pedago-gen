@@ -29,6 +29,28 @@ export const useAI = () => {
 
 const DEFAULT_ENGINES: AIEngine[] = [
   {
+    id: 'professeur-kebe-colab',
+    name: 'Professeur KEBE (Colab)',
+    type: 'local',
+    status: 'active',
+    config: {
+      model: 'internlm2:latest',
+      port: 11434,
+      endpoint: 'https://56abf037c30d.ngrok-free.app'
+    }
+  },
+  {
+    id: 'deepseek-colab',
+    name: 'DeepSeek Coder (Colab)',
+    type: 'local',
+    status: 'inactive',
+    config: {
+      model: 'deepseek-coder:6.7b',
+      port: 11434,
+      endpoint: 'https://56abf037c30d.ngrok-free.app'
+    }
+  },
+  {
     id: 'ollama-local',
     name: 'Ollama (Local)',
     type: 'local',
@@ -102,7 +124,7 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [isTyping, setIsTyping] = useState(false);
   const [activeEngine, setActiveEngineState] = useState<AIEngine | null>(null);
   const [adminSettings, setAdminSettings] = useState<AdminSettings>({
-    activeEngine: '',
+    activeEngine: 'professeur-kebe-colab',
     engines: DEFAULT_ENGINES,
     logs: []
   });
