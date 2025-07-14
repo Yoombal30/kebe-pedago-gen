@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { Wifi, WifiOff, Activity, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Wifi, WifiOff, Activity, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useAI } from '@/contexts/AIContext';
@@ -7,11 +8,13 @@ import { useAI } from '@/contexts/AIContext';
 interface StatusIndicatorProps {
   className?: string;
   showText?: boolean;
+  showDetails?: boolean;
 }
 
 export const StatusIndicator: React.FC<StatusIndicatorProps> = ({ 
   className, 
-  showText = true 
+  showText = true,
+  showDetails = false 
 }) => {
   const { activeEngine, isConnected } = useAI();
 
@@ -24,35 +27,48 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
     );
   }
 
-  const isSimulationMode = activeEngine.config && 
-    'endpoint' in activeEngine.config && 
-    activeEngine.config.endpoint === 'local://simulation';
+  const getStatusInfo = () => {
+    if (isConnected) {
+      return {
+        variant: "default" as const,
+        icon: CheckCircle,
+        text: "Connecté",
+        bgColor: "bg-green-100 text-green-800"
+      };
+    } else {
+      return {
+        variant: "destructive" as const,
+        icon: WifiOff,
+        text: "Déconnecté",
+        bgColor: "bg-red-100 text-red-800"
+      };
+    }
+  };
 
-  if (isSimulationMode) {
-    return (
-      <Badge variant="default" className={cn("flex items-center gap-1 bg-blue-100 text-blue-800", className)}>
-        <Activity className="h-3 w-3" />
-        {showText && "Mode Simulation"}
-      </Badge>
-    );
-  }
+  const status = getStatusInfo();
+  const StatusIcon = status.icon;
 
   return (
-    <Badge 
-      variant={isConnected ? "default" : "destructive"} 
-      className={cn("flex items-center gap-1", className)}
-    >
-      {isConnected ? (
-        <>
-          <CheckCircle className="h-3 w-3" />
-          {showText && "Connecté"}
-        </>
-      ) : (
-        <>
-          <WifiOff className="h-3 w-3" />
-          {showText && "Déconnecté"}
-        </>
+    <div className={cn("flex flex-col gap-1", className)}>
+      <Badge 
+        variant={status.variant} 
+        className={cn("flex items-center gap-1", status.bgColor)}
+      >
+        <StatusIcon className="h-3 w-3" />
+        {showText && status.text}
+      </Badge>
+      
+      {showDetails && activeEngine && (
+        <div className="text-xs text-muted-foreground">
+          <div>{activeEngine.name}</div>
+          <div className="flex items-center gap-1">
+            <span>{activeEngine.type === 'local' ? '🏠' : '🌐'}</span>
+            {'config' in activeEngine && 'model' in activeEngine.config && (
+              <span>{activeEngine.config.model}</span>
+            )}
+          </div>
+        </div>
       )}
-    </Badge>
+    </div>
   );
 };

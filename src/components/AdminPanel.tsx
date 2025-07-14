@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Settings, Plus, Trash2, TestTube, Power, AlertCircle, CheckCircle, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,6 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAI } from '@/contexts/AIContext';
 import { useToast } from '@/hooks/use-toast';
 import { AIEngine, LogEntry } from '@/types';
+import { PromptSettings } from './PromptSettings';
 
 export const AdminPanel: React.FC = () => {
   const { 
@@ -42,6 +42,16 @@ export const AdminPanel: React.FC = () => {
       toast({
         title: "Champs requis",
         description: "Veuillez remplir tous les champs obligatoires",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validation spéciale pour les moteurs distants
+    if (newEngine.type === 'remote' && (!newEngine.apiKey || newEngine.apiKey.trim() === '')) {
+      toast({
+        title: "Clé API requise",
+        description: "Une clé API est obligatoire pour les moteurs distants",
         variant: "destructive"
       });
       return;
@@ -89,9 +99,14 @@ export const AdminPanel: React.FC = () => {
       title: success ? "Test réussi" : "Test échoué",
       description: success 
         ? "Le moteur répond correctement" 
-        : "Impossible de se connecter au moteur",
+        : "Impossible de se connecter au moteur. Vérifiez la configuration et la connectivité.",
       variant: success ? "default" : "destructive"
     });
+  };
+
+  const handlePromptUpdate = (prompt: string) => {
+    // Ici on pourrait sauvegarder le prompt dans le localStorage ou un service
+    localStorage.setItem('coursePrompt', prompt);
   };
 
   const getStatusColor = (status: string) => {
@@ -122,6 +137,7 @@ export const AdminPanel: React.FC = () => {
       <Tabs defaultValue="engines" className="space-y-6">
         <TabsList>
           <TabsTrigger value="engines">Moteurs IA</TabsTrigger>
+          <TabsTrigger value="prompts">Prompts</TabsTrigger>
           <TabsTrigger value="logs">Logs système</TabsTrigger>
           <TabsTrigger value="settings">Configuration</TabsTrigger>
         </TabsList>
@@ -228,15 +244,24 @@ export const AdminPanel: React.FC = () => {
                         </Select>
                       </div>
                       <div>
-                        <Label htmlFor="apiKey">Clé API</Label>
+                        <Label htmlFor="apiKey">Clé API *</Label>
                         <Input
                           id="apiKey"
                           type="password"
                           value={newEngine.apiKey}
                           onChange={(e) => setNewEngine(prev => ({ ...prev, apiKey: e.target.value }))}
-                          placeholder="sk-..."
+                          placeholder="sk-... (obligatoire)"
                         />
                       </div>
+                    </div>
+                  )}
+
+                  {newEngine.type === 'remote' && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <p className="text-sm text-amber-800">
+                        <strong>Important :</strong> Une clé API valide est requise pour les moteurs distants.
+                        Assurez-vous d'avoir les bonnes permissions pour le modèle sélectionné.
+                      </p>
                     </div>
                   )}
 
@@ -324,6 +349,15 @@ export const AdminPanel: React.FC = () => {
               </Card>
             ))}
           </div>
+        </TabsContent>
+
+        <TabsContent value="prompts" className="space-y-6">
+          <div>
+            <h2 className="text-xl font-semibold mb-2">Configuration des prompts</h2>
+            <p className="text-muted-foreground">Personnalisez les instructions données aux moteurs IA</p>
+          </div>
+
+          <PromptSettings onPromptUpdate={handlePromptUpdate} />
         </TabsContent>
 
         <TabsContent value="logs" className="space-y-6">

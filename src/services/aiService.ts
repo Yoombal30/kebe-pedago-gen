@@ -1,4 +1,3 @@
-
 import { AIEngine, LocalAIConfig, RemoteAIConfig, ChatMessage } from '@/types';
 
 export interface AIResponse {
@@ -51,12 +50,17 @@ export class AIService {
     try {
       console.log('Tentative de connexion à:', config.endpoint);
       
-      // Headers spéciaux pour ngrok et CORS
+      // Configuration des headers avec timeout plus long
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'ngrok-skip-browser-warning': 'true',
         'Accept': 'application/json',
       };
+
+      // Headers spéciaux pour ngrok
+      if (config.endpoint.includes('ngrok')) {
+        headers['ngrok-skip-browser-warning'] = 'true';
+        headers['User-Agent'] = 'ProfesseurKEBE/1.0';
+      }
 
       // Payload pour Ollama
       const payload = {
@@ -71,16 +75,37 @@ export class AIService {
 
       console.log('Payload envoyé:', payload);
 
-      // Essayer l'API Ollama standard
-      let response: Response;
+      // Essayer d'abord l'API Ollama standard
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes timeout
+
       try {
-        response = await fetch(`${config.endpoint}/api/generate`, {
+        const response = await fetch(`${config.endpoint}/api/generate`, {
           method: 'POST',
           headers,
           body: JSON.stringify(payload),
+          signal: controller.signal,
           mode: 'cors',
         });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`Erreur HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log('Réponse reçue:', data);
+        
+        const content = data.response || data.text || data.content || data.choices?.[0]?.message?.content || 'Réponse reçue du modèle';
+        
+        return {
+          content,
+          success: true
+        };
+
       } catch (fetchError) {
+        clearTimeout(timeoutId);
         console.log('Erreur API Ollama, essai endpoint direct:', fetchError);
         
         // Fallback: essayer l'endpoint direct avec un format différent
@@ -90,29 +115,36 @@ export class AIService {
           temperature: 0.7
         };
 
-        response = await fetch(config.endpoint, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(simplePayload),
-          mode: 'cors',
-        });
-      }
+        const fallbackController = new AbortController();
+        const fallbackTimeoutId = setTimeout(() => fallbackController.abort(), 20000);
 
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Erreur inconnue');
-        console.error('Réponse HTTP non-OK:', response.status, errorText);
-        throw new Error(`Erreur HTTP ${response.status}: ${errorText}`);
-      }
+        try {
+          const fallbackResponse = await fetch(config.endpoint, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(simplePayload),
+            signal: fallbackController.signal,
+            mode: 'cors',
+          });
 
-      const data = await response.json();
-      console.log('Réponse reçue:', data);
-      
-      const content = data.response || data.text || data.content || data.choices?.[0]?.message?.content || 'Réponse reçue du modèle';
-      
-      return {
-        content,
-        success: true
-      };
+          clearTimeout(fallbackTimeoutId);
+
+          if (!fallbackResponse.ok) {
+            throw new Error(`Erreur HTTP ${fallbackResponse.status}: ${fallbackResponse.statusText}`);
+          }
+
+          const fallbackData = await fallbackResponse.json();
+          const content = fallbackData.response || fallbackData.text || fallbackData.content || 'Réponse reçue du modèle';
+          
+          return {
+            content,
+            success: true
+          };
+        } catch (fallbackError) {
+          clearTimeout(fallbackTimeoutId);
+          throw new Error(`Connexion impossible - Vérifiez que le serveur ${config.endpoint} est accessible`);
+        }
+      }
     } catch (error) {
       console.error('Erreur complète:', error);
       return {
@@ -124,6 +156,10 @@ export class AIService {
   }
 
   private async sendToRemoteEngine(message: string, config: RemoteAIConfig): Promise<AIResponse> {
+    if (!config.apiKey || config.apiKey.trim() === '') {
+      throw new Error(`Clé API manquante pour ${config.provider}. Veuillez configurer votre clé API.`);
+    }
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
@@ -144,23 +180,41 @@ export class AIService {
 
     const payload = this.buildPayload(config.provider, message, config);
 
-    const response = await fetch(config.endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-    if (!response.ok) {
-      throw new Error(`Erreur HTTP: ${response.status} - ${response.statusText}`);
+    try {
+      const response = await fetch(config.endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Erreur inconnue');
+        if (response.status === 401) {
+          throw new Error(`Clé API invalide pour ${config.provider}. Vérifiez votre clé API.`);
+        }
+        throw new Error(`Erreur HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      const content = this.extractContent(config.provider, data);
+
+      return {
+        content: content || 'Réponse vide',
+        success: true
+      };
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Timeout de connexion - Le serveur met trop de temps à répondre');
+      }
+      throw error;
     }
-
-    const data = await response.json();
-    const content = this.extractContent(config.provider, data);
-
-    return {
-      content: content || 'Réponse vide',
-      success: true
-    };
   }
 
   private buildPayload(provider: string, message: string, config: RemoteAIConfig) {
@@ -248,7 +302,6 @@ export class AIService {
       return false;
     }
   }
-
 }
 
 export const aiService = AIService.getInstance();
