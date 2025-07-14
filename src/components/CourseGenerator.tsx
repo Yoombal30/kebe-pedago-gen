@@ -90,89 +90,23 @@ export const CourseGenerator: React.FC = () => {
       
       Instructions personnalisées : ${customInstructions || 'Aucune'}
       
-      Le cours doit être complet, pédagogique et prêt à être utilisé en formation.`;
+      Le cours doit être complet, pédagogique et prêt à être utilisé en formation. Retourne uniquement le contenu du cours structuré en markdown.`;
 
-      await sendMessage(prompt);
-
-      // Simulation du résultat
-      const generatedContent = `# Cours de Formation Professionnelle
-
-## Introduction
-Ce cours a été généré automatiquement par le Professeur KEBE pour répondre à vos besoins de formation spécifiques.
-
-## Module 1: Fondamentaux
-### Objectifs pédagogiques
-- Comprendre les concepts de base
-- Maîtriser les bonnes pratiques
-- Appliquer les procédures en situation réelle
-
-### Contenu théorique
-Les fondamentaux constituent la base essentielle de toute formation professionnelle...
-
-### Exemples pratiques
-${settings.addExamples ? `
-1. Exemple concret en situation professionnelle
-2. Cas d'étude détaillé avec solution
-3. Exercice d'application pratique
-` : ''}
-
-### Points d'attention
-${settings.addWarnings ? `
-⚠️ Attention aux erreurs courantes
-⚠️ Précautions de sécurité importantes
-⚠️ Bonnes pratiques à respecter
-` : ''}
-
-## Module 2: Applications pratiques
-### Mise en œuvre
-Les applications pratiques permettent de consolider les acquis théoriques...
-
-### Évaluation des compétences
-L'évaluation se fait par observation directe et contrôle des réalisations...
-
-${settings.includeConclusion ? `
-## Conclusion
-Ce cours vous a permis d'acquérir les compétences essentielles pour...
-Les prochaines étapes de votre formation incluront...
-` : ''}
-
-${settings.includeQCM ? `
-## QCM d'évaluation
-
-**Question 1:** Quelle est la première étape de la procédure ?
-a) Vérifier les équipements
-b) Lire la documentation
-c) Contacter le superviseur
-d) Préparer l'espace de travail
-
-**Réponse correcte:** a) Vérifier les équipements
-**Explication:** La vérification des équipements est primordiale pour la sécurité.
-
-**Question 2:** Combien de temps faut-il prévoir pour cette opération ?
-a) 15 minutes
-b) 30 minutes
-c) 45 minutes
-d) 1 heure
-
-**Réponse correcte:** b) 30 minutes
-**Explication:** Le temps standard recommandé est de 30 minutes pour une exécution optimale.
-
-**Question 3:** Quelle est la principale erreur à éviter ?
-a) Aller trop vite
-b) Ne pas porter d'EPI
-c) Oublier la documentation
-d) Toutes les réponses
-
-**Réponse correcte:** d) Toutes les réponses
-**Explication:** Chacune de ces erreurs peut compromettre la sécurité et la qualité.
-` : ''}`;
+      const response = await new Promise<string>((resolve) => {
+        // Attendre la réponse de l'IA via le chat
+        const originalSendMessage = sendMessage;
+        sendMessage(prompt).then(() => {
+          // La réponse de l'IA sera dans le chat context
+          resolve("Contenu généré par l'IA - Voir le chat pour plus de détails");
+        });
+      });
 
       const updatedCourse: GeneratedCourse = {
         ...newCourse,
-        title: 'Cours de Formation Professionnelle',
-        content: generatedContent,
-        modules: ['Fondamentaux', 'Applications pratiques'],
-        qcmCount: settings.includeQCM ? 3 : 0,
+        title: 'Cours généré par IA',
+        content: response,
+        modules: ['Module généré par IA'],
+        qcmCount: settings.includeQCM ? 1 : 0,
         status: 'completed'
       };
 

@@ -223,49 +223,29 @@ export const QCMManager: React.FC = () => {
       - Une explication détaillée pour chaque bonne réponse
       - Un niveau de difficulté progressif
 
-      Format la réponse de manière structurée.`;
+      Format la réponse de manière structurée avec le format suivant :
+      Question: [question]
+      Options: [option1|option2|option3|option4]
+      Réponse: [numéro de la bonne réponse]
+      Explication: [explication]`;
 
       await sendMessage(prompt);
 
-      // Simulation de génération automatique
-      const generatedQuestions: QCMQuestion[] = [
-        {
-          id: Date.now().toString() + '1',
-          question: 'Quelle est la distance minimale de sécurité à respecter près d\'une ligne haute tension ?',
-          options: ['1 mètre', '3 mètres', '5 mètres', '10 mètres'],
-          correctAnswer: 2,
-          explanation: 'La distance de sécurité minimale est de 5 mètres pour éviter tout risque d\'arc électrique.'
-        },
-        {
-          id: Date.now().toString() + '2',
-          question: 'Avant d\'utiliser un équipement électrique, que faut-il vérifier en priorité ?',
-          options: ['La marque', 'L\'état du câble', 'La couleur', 'Le prix'],
-          correctAnswer: 1,
-          explanation: 'Il est essentiel de vérifier l\'état du câble pour détecter d\'éventuels dommages qui pourraient causer un accident.'
-        },
-        {
-          id: Date.now().toString() + '3',
-          question: 'En cas d\'électrocution, quelle est la première action à effectuer ?',
-          options: ['Toucher la personne', 'Couper le courant', 'Appeler les secours', 'Donner de l\'eau'],
-          correctAnswer: 1,
-          explanation: 'Il faut d\'abord couper l\'alimentation électrique avant tout contact avec la victime pour éviter de s\'électrocuter à son tour.'
-        }
-      ];
-
+      // Le QCM sera créé quand l'utilisateur recevra la réponse de l'IA
       const autoQCM: QCMSet = {
         id: Date.now().toString(),
-        title: 'QCM Sécurité - Généré automatiquement',
-        description: 'Questions générées automatiquement par l\'IA sur la sécurité professionnelle',
+        title: 'QCM généré par IA',
+        description: 'Questions générées par le moteur IA configuré - Voir le chat pour les détails',
         category: 'security',
-        questions: generatedQuestions,
+        questions: [],
         createdAt: new Date()
       };
 
       setQcmSets(prev => [autoQCM, ...prev]);
 
       toast({
-        title: "QCM généré avec succès",
-        description: `${generatedQuestions.length} questions ont été créées automatiquement`
+        title: "Demande envoyée à l'IA",
+        description: "Consultez le chat pour voir les questions générées par l'IA"
       });
 
     } catch (error) {

@@ -51,17 +51,6 @@ const DEFAULT_ENGINES: AIEngine[] = [
     }
   },
   {
-    id: 'simulation-mode',
-    name: 'Mode Simulation (Local)',
-    type: 'local',
-    status: 'inactive',
-    config: {
-      model: 'professeur-kebe-simulation',
-      port: 0,
-      endpoint: 'local://simulation'
-    }
-  },
-  {
     id: 'ollama-local',
     name: 'Ollama (Local)',
     type: 'local',
