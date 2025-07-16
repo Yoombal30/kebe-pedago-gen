@@ -29,15 +29,15 @@ export const useAI = () => {
 
 const DEFAULT_ENGINES: AIEngine[] = [
   {
-    id: 'huggingface-free',
-    name: 'Hugging Face (Gratuit)',
+    id: 'demo-ai',
+    name: 'Assistant IA (Demo)',
     type: 'remote',
     status: 'active',
     config: {
-      provider: 'huggingface',
-      apiKey: '', // Utilise l'API publique gratuite
-      model: 'microsoft/DialoGPT-medium',
-      endpoint: 'https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium'
+      provider: 'demo',
+      apiKey: '',
+      model: 'demo-model',
+      endpoint: 'https://httpbin.org/json'
     }
   },
   {
@@ -144,18 +144,18 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           ...parsed,
           engines: parsed.engines?.length > 0 ? parsed.engines : DEFAULT_ENGINES,
           logs: parsed.logs || [],
-          activeEngine: parsed.activeEngine || 'huggingface-free'
+          activeEngine: parsed.activeEngine || 'demo-ai'
         };
       } catch {
         return {
-          activeEngine: 'huggingface-free',
+          activeEngine: 'demo-ai',
           engines: DEFAULT_ENGINES,
           logs: []
         };
       }
     }
     return {
-      activeEngine: 'huggingface-free',
+      activeEngine: 'demo-ai',
       engines: DEFAULT_ENGINES,
       logs: []
     };

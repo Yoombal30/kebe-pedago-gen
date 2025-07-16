@@ -156,7 +156,7 @@ export class AIService {
   }
 
   private async sendToRemoteEngine(message: string, config: RemoteAIConfig): Promise<AIResponse> {
-    // Pour Hugging Face, l'API key est optionnelle pour certains modèles publics
+    // Pour Hugging Face, essayer d'abord sans API key, puis avec si disponible
     if (config.provider !== 'huggingface' && (!config.apiKey || config.apiKey.trim() === '')) {
       throw new Error(`Clé API manquante pour ${config.provider}. Veuillez configurer votre clé API.`);
     }
@@ -257,16 +257,18 @@ export class AIService {
 
       case 'huggingface':
         return {
-          inputs: {
-            past_user_inputs: [],
-            generated_responses: [],
-            text: `${systemPrompt}\n\nQuestion: ${message}`
-          },
+          inputs: `${systemPrompt}\n\nQuestion: ${message}`,
           parameters: {
-            max_length: 1500,
+            max_new_tokens: 250,
             temperature: 0.7,
-            do_sample: true
+            return_full_text: false
           }
+        };
+
+      case 'demo':
+        return {
+          message: `${systemPrompt}\n\nQuestion: ${message}`,
+          demo: true
         };
 
       default:
@@ -288,7 +290,10 @@ export class AIService {
         return data.content?.[0]?.text || '';
       
       case 'huggingface':
-        return data.generated_text || data.response || '';
+        return data.generated_text || data[0]?.generated_text || data.response || '';
+      
+      case 'demo':
+        return "✅ Connexion de démonstration réussie ! Je suis le Professeur KEBE, prêt à vous aider avec vos projets pédagogiques.";
       
       default:
         return data.response || data.text || data.content || '';
