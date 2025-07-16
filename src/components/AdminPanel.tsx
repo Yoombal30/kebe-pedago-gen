@@ -22,7 +22,8 @@ export const AdminPanel: React.FC = () => {
     testEngine, 
     addEngine, 
     removeEngine, 
-    setActiveEngine 
+    setActiveEngine,
+    clearLogs
   } = useAI();
   
   const [isAddEngineOpen, setIsAddEngineOpen] = useState(false);
@@ -361,9 +362,25 @@ export const AdminPanel: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="logs" className="space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold mb-2">Logs système</h2>
-            <p className="text-muted-foreground">Historique des événements et erreurs</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold mb-2">Logs système</h2>
+              <p className="text-muted-foreground">Historique des événements et erreurs</p>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                clearLogs();
+                toast({
+                  title: "Logs supprimés",
+                  description: "Tous les logs ont été effacés"
+                });
+              }}
+              disabled={adminSettings.logs.length === 0}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Vider les logs
+            </Button>
           </div>
 
           <Card>

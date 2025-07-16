@@ -15,6 +15,7 @@ interface AIContextType {
   addEngine: (engine: Omit<AIEngine, 'id'>) => void;
   removeEngine: (engineId: string) => void;
   setActiveEngine: (engineId: string) => void;
+  clearLogs: () => void;
 }
 
 const AIContext = createContext<AIContextType | undefined>(undefined);
@@ -48,7 +49,7 @@ const DEFAULT_ENGINES: AIEngine[] = [
     config: {
       model: 'internlm2:latest',
       port: 11434,
-      endpoint: 'https://56abf037c30d.ngrok-free.app'
+      endpoint: 'https://64a78917a92d.ngrok-free.app'
     }
   },
   {
@@ -59,7 +60,7 @@ const DEFAULT_ENGINES: AIEngine[] = [
     config: {
       model: 'deepseek-coder:6.7b',
       port: 11434,
-      endpoint: 'https://56abf037c30d.ngrok-free.app'
+      endpoint: 'https://64a78917a92d.ngrok-free.app'
     }
   },
   {
@@ -175,6 +176,14 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       ...prev,
       logs: [newLog, ...prev.logs].slice(0, 100) // Garder seulement les 100 derniers logs
     }));
+  }, []);
+
+  const clearLogs = useCallback(() => {
+    setAdminSettings(prev => ({
+      ...prev,
+      logs: []
+    }));
+    addLog('info', 'Logs supprimés');
   }, []);
 
   const sendMessage = useCallback(async (content: string) => {
@@ -394,7 +403,8 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       testEngine,
       addEngine,
       removeEngine,
-      setActiveEngine
+      setActiveEngine,
+      clearLogs
     }}>
       {children}
     </AIContext.Provider>
