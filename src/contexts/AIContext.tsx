@@ -41,6 +41,7 @@ const DEFAULT_ENGINES: AIEngine[] = [
       endpoint: 'https://httpbin.org/json'
     }
   },
+  // Colab/Ngrok Engines
   {
     id: 'professeur-kebe-colab',
     name: 'Professeur KEBE (Colab)',
@@ -64,16 +65,117 @@ const DEFAULT_ENGINES: AIEngine[] = [
     }
   },
   {
-    id: 'ollama-local',
-    name: 'Ollama (Local)',
+    id: 'llama3-colab',
+    name: 'Llama 3.2 (Colab)',
     type: 'local',
     status: 'inactive',
     config: {
-      model: 'llama3.2',
+      model: 'llama3.2:latest',
+      port: 11434,
+      endpoint: 'https://64a78917a92d.ngrok-free.app'
+    }
+  },
+  {
+    id: 'codellama-colab',
+    name: 'Code Llama (Colab)',
+    type: 'local',
+    status: 'inactive',
+    config: {
+      model: 'codellama:7b',
+      port: 11434,
+      endpoint: 'https://64a78917a92d.ngrok-free.app'
+    }
+  },
+  {
+    id: 'mistral-colab',
+    name: 'Mistral 7B (Colab)',
+    type: 'local',
+    status: 'inactive',
+    config: {
+      model: 'mistral:7b',
+      port: 11434,
+      endpoint: 'https://64a78917a92d.ngrok-free.app'
+    }
+  },
+  // Local Ollama Engines
+  {
+    id: 'ollama-llama3',
+    name: 'Ollama - Llama 3.2 (Local)',
+    type: 'local',
+    status: 'inactive',
+    config: {
+      model: 'llama3.2:latest',
       port: 11434,
       endpoint: 'http://localhost:11434'
     }
   },
+  {
+    id: 'ollama-deepseek',
+    name: 'Ollama - DeepSeek Coder (Local)',
+    type: 'local',
+    status: 'inactive',
+    config: {
+      model: 'deepseek-coder:6.7b',
+      port: 11434,
+      endpoint: 'http://localhost:11434'
+    }
+  },
+  {
+    id: 'ollama-codellama',
+    name: 'Ollama - Code Llama (Local)',
+    type: 'local',
+    status: 'inactive',
+    config: {
+      model: 'codellama:7b',
+      port: 11434,
+      endpoint: 'http://localhost:11434'
+    }
+  },
+  {
+    id: 'ollama-mistral',
+    name: 'Ollama - Mistral 7B (Local)',
+    type: 'local',
+    status: 'inactive',
+    config: {
+      model: 'mistral:7b',
+      port: 11434,
+      endpoint: 'http://localhost:11434'
+    }
+  },
+  {
+    id: 'ollama-phi3',
+    name: 'Ollama - Phi-3 (Local)',
+    type: 'local',
+    status: 'inactive',
+    config: {
+      model: 'phi3:latest',
+      port: 11434,
+      endpoint: 'http://localhost:11434'
+    }
+  },
+  {
+    id: 'ollama-gemma',
+    name: 'Ollama - Gemma 2B (Local)',
+    type: 'local',
+    status: 'inactive',
+    config: {
+      model: 'gemma:2b',
+      port: 11434,
+      endpoint: 'http://localhost:11434'
+    }
+  },
+  {
+    id: 'ollama-qwen',
+    name: 'Ollama - Qwen 2.5 (Local)',
+    type: 'local',
+    status: 'inactive',
+    config: {
+      model: 'qwen2.5:7b',
+      port: 11434,
+      endpoint: 'http://localhost:11434'
+    }
+  },
+  // Other Local Providers
   {
     id: 'lmstudio-local',
     name: 'LM Studio (Local)',
@@ -83,6 +185,53 @@ const DEFAULT_ENGINES: AIEngine[] = [
       model: 'llama-3.2-3b-instruct',
       port: 1234,
       endpoint: 'http://localhost:1234/v1'
+    }
+  },
+  {
+    id: 'textgen-webui',
+    name: 'Text Generation WebUI (Local)',
+    type: 'local',
+    status: 'inactive',
+    config: {
+      model: 'local-model',
+      port: 5000,
+      endpoint: 'http://localhost:5000/v1'
+    }
+  },
+  {
+    id: 'koboldcpp-local',
+    name: 'KoboldCpp (Local)',
+    type: 'local',
+    status: 'inactive',
+    config: {
+      model: 'kobold-model',
+      port: 5001,
+      endpoint: 'http://localhost:5001/v1'
+    }
+  },
+  // Remote API Providers
+  {
+    id: 'openai-api',
+    name: 'OpenAI GPT',
+    type: 'remote',
+    status: 'inactive',
+    config: {
+      provider: 'openai',
+      apiKey: '',
+      model: 'gpt-3.5-turbo',
+      endpoint: 'https://api.openai.com/v1/chat/completions'
+    }
+  },
+  {
+    id: 'anthropic-api',
+    name: 'Anthropic Claude',
+    type: 'remote',
+    status: 'inactive',
+    config: {
+      provider: 'anthropic',
+      apiKey: '',
+      model: 'claude-3-haiku-20240307',
+      endpoint: 'https://api.anthropic.com/v1/messages'
     }
   },
   {
@@ -110,6 +259,30 @@ const DEFAULT_ENGINES: AIEngine[] = [
     }
   },
   {
+    id: 'groq-api',
+    name: 'Groq',
+    type: 'remote',
+    status: 'inactive',
+    config: {
+      provider: 'groq',
+      apiKey: '',
+      model: 'mixtral-8x7b-32768',
+      endpoint: 'https://api.groq.com/openai/v1/chat/completions'
+    }
+  },
+  {
+    id: 'together-api',
+    name: 'Together AI',
+    type: 'remote',
+    status: 'inactive',
+    config: {
+      provider: 'together',
+      apiKey: '',
+      model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+      endpoint: 'https://api.together.xyz/v1/chat/completions'
+    }
+  },
+  {
     id: 'huggingface-api',
     name: 'Hugging Face',
     type: 'remote',
@@ -119,6 +292,18 @@ const DEFAULT_ENGINES: AIEngine[] = [
       apiKey: '',
       model: 'microsoft/DialoGPT-large',
       endpoint: 'https://api-inference.huggingface.co/models/microsoft/DialoGPT-large'
+    }
+  },
+  {
+    id: 'perplexity-api',
+    name: 'Perplexity AI',
+    type: 'remote',
+    status: 'inactive',
+    config: {
+      provider: 'perplexity',
+      apiKey: '',
+      model: 'llama-3.1-sonar-small-128k-online',
+      endpoint: 'https://api.perplexity.ai/chat/completions'
     }
   }
 ];
