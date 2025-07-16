@@ -29,10 +29,22 @@ export const useAI = () => {
 
 const DEFAULT_ENGINES: AIEngine[] = [
   {
+    id: 'huggingface-free',
+    name: 'Hugging Face (Gratuit)',
+    type: 'remote',
+    status: 'active',
+    config: {
+      provider: 'huggingface',
+      apiKey: '', // Utilise l'API publique gratuite
+      model: 'microsoft/DialoGPT-medium',
+      endpoint: 'https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium'
+    }
+  },
+  {
     id: 'professeur-kebe-colab',
     name: 'Professeur KEBE (Colab)',
     type: 'local',
-    status: 'active',
+    status: 'inactive',
     config: {
       model: 'internlm2:latest',
       port: 11434,
@@ -123,10 +135,30 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   const [isTyping, setIsTyping] = useState(false);
   const [activeEngine, setActiveEngineState] = useState<AIEngine | null>(null);
-  const [adminSettings, setAdminSettings] = useState<AdminSettings>({
-    activeEngine: 'professeur-kebe-colab',
-    engines: DEFAULT_ENGINES,
-    logs: []
+  const [adminSettings, setAdminSettings] = useState<AdminSettings>(() => {
+    const saved = localStorage.getItem('professeur-kebe-admin');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return {
+          ...parsed,
+          engines: parsed.engines?.length > 0 ? parsed.engines : DEFAULT_ENGINES,
+          logs: parsed.logs || [],
+          activeEngine: parsed.activeEngine || 'huggingface-free'
+        };
+      } catch {
+        return {
+          activeEngine: 'huggingface-free',
+          engines: DEFAULT_ENGINES,
+          logs: []
+        };
+      }
+    }
+    return {
+      activeEngine: 'huggingface-free',
+      engines: DEFAULT_ENGINES,
+      logs: []
+    };
   });
   const [isConnected, setIsConnected] = useState(false);
 
@@ -319,6 +351,11 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     // Vérifier la connexion du nouveau moteur actif
     checkConnection();
   }, [adminSettings.engines, addLog, checkConnection]);
+
+  // Sauvegarder les paramètres dans localStorage
+  useEffect(() => {
+    localStorage.setItem('professeur-kebe-admin', JSON.stringify(adminSettings));
+  }, [adminSettings]);
 
   // Vérifier la connexion périodiquement
   useEffect(() => {

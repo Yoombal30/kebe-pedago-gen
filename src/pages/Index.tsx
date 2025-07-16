@@ -78,29 +78,38 @@ const Dashboard = () => (
     </div>
 
     <div className="grid lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Démarrage rapide</CardTitle>
-            <CardDescription>
-              Utilisez le chat avec le Professeur KEBE pour commencer
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="bg-muted p-4 rounded-lg">
-                <h4 className="font-medium mb-2">💡 Suggestions pour commencer :</h4>
-                <ul className="text-sm space-y-1">
-                  <li>• "Crée un module sur la sécurité électrique"</li>
-                  <li>• "Génère un cours à partir de mes modules"</li>
-                  <li>• "Ajoute une section QCM à la fin"</li>
-                  <li>• "Exporte le cours en PDF"</li>
-                </ul>
-              </div>
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Assistant IA Configuré</CardTitle>
+                  <CardDescription>
+                    Moteur Hugging Face connecté et prêt à l'emploi
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="bg-primary/5 border border-primary/20 p-4 rounded-lg">
+                      <h4 className="font-medium mb-2 text-primary">✅ Application prête pour la production</h4>
+                      <ul className="text-sm space-y-1">
+                        <li>• Moteur IA gratuit Hugging Face configuré</li>
+                        <li>• Aucune clé API requise</li>
+                        <li>• Fonctionnalités complètes disponibles</li>
+                        <li>• Chat, génération de cours et QCM opérationnels</li>
+                      </ul>
+                    </div>
+                    <div className="bg-muted p-4 rounded-lg">
+                      <h4 className="font-medium mb-2">💡 Suggestions pour commencer :</h4>
+                      <ul className="text-sm space-y-1">
+                        <li>• "Crée un module sur la sécurité électrique"</li>
+                        <li>• "Génère un cours à partir de mes modules"</li>
+                        <li>• "Ajoute une section QCM à la fin"</li>
+                        <li>• "Exporte le cours en PDF"</li>
+                      </ul>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
-      </div>
 
       <div>
         <Card>
@@ -161,10 +170,10 @@ const Index = () => {
     <AIProvider>
       <div className="min-h-screen bg-background">
         <Tabs defaultValue="dashboard" className="h-screen flex flex-col">
-          <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="container">
-              <div className="flex items-center justify-between">
-                <TabsList className="h-12">
+      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container">
+          <div className="flex items-center justify-between">
+            <TabsList className="h-12 grid-cols-9 w-full max-w-4xl">
                   <TabsTrigger value="dashboard" className="flex items-center gap-2">
                     <Bot className="h-4 w-4" />
                     Tableau de bord

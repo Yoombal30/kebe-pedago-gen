@@ -156,7 +156,8 @@ export class AIService {
   }
 
   private async sendToRemoteEngine(message: string, config: RemoteAIConfig): Promise<AIResponse> {
-    if (!config.apiKey || config.apiKey.trim() === '') {
+    // Pour Hugging Face, l'API key est optionnelle pour certains modèles publics
+    if (config.provider !== 'huggingface' && (!config.apiKey || config.apiKey.trim() === '')) {
       throw new Error(`Clé API manquante pour ${config.provider}. Veuillez configurer votre clé API.`);
     }
 
@@ -175,7 +176,9 @@ export class AIService {
       headers['x-api-key'] = config.apiKey;
       headers['anthropic-version'] = '2023-06-01';
     } else if (config.provider === 'huggingface') {
-      headers['Authorization'] = `Bearer ${config.apiKey}`;
+      if (config.apiKey && config.apiKey.trim() !== '') {
+        headers['Authorization'] = `Bearer ${config.apiKey}`;
+      }
     }
 
     const payload = this.buildPayload(config.provider, message, config);
@@ -254,11 +257,15 @@ export class AIService {
 
       case 'huggingface':
         return {
-          inputs: `${systemPrompt}\n\nQuestion: ${message}\nRéponse:`,
+          inputs: {
+            past_user_inputs: [],
+            generated_responses: [],
+            text: `${systemPrompt}\n\nQuestion: ${message}`
+          },
           parameters: {
-            max_new_tokens: 1500,
+            max_length: 1500,
             temperature: 0.7,
-            return_full_text: false
+            do_sample: true
           }
         };
 
@@ -281,7 +288,7 @@ export class AIService {
         return data.content?.[0]?.text || '';
       
       case 'huggingface':
-        return Array.isArray(data) ? data[0]?.generated_text || '' : data.generated_text || '';
+        return data.generated_text || data.response || '';
       
       default:
         return data.response || data.text || data.content || '';
