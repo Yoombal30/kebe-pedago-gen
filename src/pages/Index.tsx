@@ -12,7 +12,7 @@ import { QCMManager } from '@/components/QCMManager';
 import { UserGuide } from '@/components/UserGuide';
 import { AppStatus } from '@/components/AppStatus';
 import { StatusIndicator } from '@/components/StatusIndicator';
-import { AIProvider } from '@/contexts/AIContext';
+
 
 const Dashboard = () => (
   <div className="p-6">
@@ -167,8 +167,7 @@ const Dashboard = () => (
 
 const Index = () => {
   return (
-    <AIProvider>
-      <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background">
         <Tabs defaultValue="dashboard" className="h-screen flex flex-col">
       <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container">
@@ -263,7 +262,6 @@ const Index = () => {
           </div>
         </Tabs>
       </div>
-    </AIProvider>
   );
 };
 
