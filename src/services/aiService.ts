@@ -156,8 +156,8 @@ export class AIService {
   }
 
   private async sendToRemoteEngine(message: string, config: RemoteAIConfig): Promise<AIResponse> {
-    // Pour Hugging Face, essayer d'abord sans API key, puis avec si disponible
-    if (config.provider !== 'huggingface' && (!config.apiKey || config.apiKey.trim() === '')) {
+    // Validation des clés API (sauf demo et certains providers)
+    if (config.provider !== 'demo' && config.provider !== 'huggingface' && (!config.apiKey || config.apiKey.trim() === '')) {
       throw new Error(`Clé API manquante pour ${config.provider}. Veuillez configurer votre clé API.`);
     }
 
@@ -179,6 +179,11 @@ export class AIService {
       if (config.apiKey && config.apiKey.trim() !== '') {
         headers['Authorization'] = `Bearer ${config.apiKey}`;
       }
+    } else if (config.provider === 'demo') {
+      // Headers minimum pour la démo
+      headers['Accept'] = 'application/json';
+    } else {
+      headers['Authorization'] = `Bearer ${config.apiKey}`;
     }
 
     const payload = this.buildPayload(config.provider, message, config);
@@ -266,9 +271,11 @@ export class AIService {
         };
 
       case 'demo':
+        // Simulation d'un appel API avec réponse fixe
         return {
-          message: `${systemPrompt}\n\nQuestion: ${message}`,
-          demo: true
+          simulation: true,
+          user_message: message,
+          timestamp: new Date().toISOString()
         };
 
       default:
@@ -293,7 +300,7 @@ export class AIService {
         return data.generated_text || data[0]?.generated_text || data.response || '';
       
       case 'demo':
-        return "✅ Connexion de démonstration réussie ! Je suis le Professeur KEBE, prêt à vous aider avec vos projets pédagogiques.";
+        return "✅ **Connexion de démonstration réussie !**\n\n🎓 Je suis le **Professeur KEBE**, votre expert pédagogique IA, prêt à vous accompagner dans tous vos projets de formation !\n\n**Mes spécialités :**\n- 📚 Création de modules de formation interactifs\n- 🎯 Génération de cours structurés et engageants  \n- 📝 Conception de QCM et évaluations\n- 💡 Optimisation de contenus pédagogiques\n\n✨ **Commençons ensemble !** Quel est votre projet de formation aujourd'hui ?";
       
       default:
         return data.response || data.text || data.content || '';

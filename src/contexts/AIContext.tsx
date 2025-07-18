@@ -38,7 +38,7 @@ const DEFAULT_ENGINES: AIEngine[] = [
       provider: 'demo',
       apiKey: '',
       model: 'demo-model',
-      endpoint: 'https://httpbin.org/json'
+      endpoint: 'https://jsonplaceholder.typicode.com/posts'
     }
   },
   // Colab/Ngrok Engines
@@ -330,7 +330,7 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           ...parsed,
           engines: parsed.engines?.length > 0 ? parsed.engines : DEFAULT_ENGINES,
           logs: parsed.logs || [],
-          activeEngine: parsed.activeEngine || 'demo-ai'
+          activeEngine: parsed.activeEngine || 'professeur-kebe-colab'
         };
       } catch {
         return {
@@ -341,7 +341,7 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       }
     }
     return {
-      activeEngine: 'demo-ai',
+      activeEngine: 'professeur-kebe-colab',
       engines: DEFAULT_ENGINES,
       logs: []
     };
