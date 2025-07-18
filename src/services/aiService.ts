@@ -159,7 +159,7 @@ export class AIService {
 
   private async sendToOllamaColab(message: string, config: OllamaColabConfig): Promise<AIResponse> {
     try {
-      console.log('Connexion à Ollama sur Colab:', config.endpoint);
+      console.log('Connexion à Ollama sur Colab:', config.endpoint, 'Modèle:', config.model);
       
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -179,10 +179,13 @@ export class AIService {
         }
       };
 
-      console.log('Ollama Colab - Payload:', payload);
+      console.log('Ollama Colab - Tentative de connexion à:', `${config.endpoint}/api/generate`);
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 secondes pour Colab
+      const timeoutId = setTimeout(() => {
+        console.log('Timeout atteint pour Ollama Colab');
+        controller.abort();
+      }, 60000); // 60 secondes pour Colab
 
       const response = await fetch(`${config.endpoint}/api/generate`, {
         method: 'POST',
@@ -194,12 +197,15 @@ export class AIService {
 
       clearTimeout(timeoutId);
 
+      console.log('Ollama Colab - Statut de réponse:', response.status, response.statusText);
+
       if (!response.ok) {
-        throw new Error(`Erreur Ollama Colab HTTP ${response.status}: ${response.statusText}`);
+        const errorText = await response.text().catch(() => 'Impossible de lire la réponse d\'erreur');
+        throw new Error(`Erreur Ollama Colab HTTP ${response.status}: ${response.statusText}. Détails: ${errorText}`);
       }
 
       const data = await response.json();
-      console.log('Ollama Colab - Réponse:', data);
+      console.log('Ollama Colab - Réponse reçue:', data);
       
       const content = data.response || data.text || data.content || 'Réponse générée par Ollama sur Colab';
       
@@ -209,7 +215,26 @@ export class AIService {
       };
 
     } catch (error) {
-      console.error('Erreur Ollama Colab:', error);
+      console.error('Erreur Ollama Colab pour', config.model, ':', error);
+      
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          return {
+            content: '',
+            success: false,
+            error: `Timeout: Le modèle ${config.model} sur Colab ne répond pas dans les délais`
+          };
+        }
+        
+        if (error.message.includes('Failed to fetch')) {
+          return {
+            content: '',
+            success: false,
+            error: `Impossible de se connecter à ${config.endpoint}. Vérifiez que Colab est en cours d'exécution et que ngrok est actif.`
+          };
+        }
+      }
+      
       return {
         content: '',
         success: false,

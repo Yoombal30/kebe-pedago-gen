@@ -60,7 +60,7 @@ const DEFAULT_ENGINES: AIEngine[] = [
     status: 'inactive',
     config: {
       model: 'deepseek-coder:6.7b',
-      endpoint: 'https://64a78917a92d.ngrok-free.app',
+      endpoint: 'https://427fce534125.ngrok-free.app',
       port: 11434
     }
   },
