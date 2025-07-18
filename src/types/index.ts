@@ -66,9 +66,9 @@ export interface ChatMessage {
 export interface AIEngine {
   id: string;
   name: string;
-  type: 'local' | 'remote';
+  type: 'local' | 'remote' | 'ollama-colab';
   status: 'active' | 'inactive' | 'error';
-  config: LocalAIConfig | RemoteAIConfig;
+  config: LocalAIConfig | RemoteAIConfig | OllamaColabConfig;
 }
 
 export interface LocalAIConfig {
@@ -82,6 +82,12 @@ export interface RemoteAIConfig {
   apiKey: string;
   model: string;
   endpoint: string;
+}
+
+export interface OllamaColabConfig {
+  model: string;
+  endpoint: string;
+  port?: number;
 }
 
 export interface AdminSettings {

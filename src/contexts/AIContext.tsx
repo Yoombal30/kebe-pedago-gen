@@ -41,27 +41,27 @@ const DEFAULT_ENGINES: AIEngine[] = [
       endpoint: 'https://jsonplaceholder.typicode.com/posts'
     }
   },
-  // Colab/Ngrok Engines
+  // Ollama sur Colab (Pas de clé API requise)
   {
     id: 'professeur-kebe-colab',
-    name: 'Professeur KEBE (Colab)',
-    type: 'local',
+    name: 'Professeur KEBE (Colab) - internlm2:latest',
+    type: 'ollama-colab',
     status: 'inactive',
     config: {
       model: 'internlm2:latest',
-      port: 11434,
-      endpoint: 'https://64a78917a92d.ngrok-free.app'
+      endpoint: 'https://64a78917a92d.ngrok-free.app',
+      port: 11434
     }
   },
   {
     id: 'deepseek-colab',
-    name: 'DeepSeek Coder (Colab)',
-    type: 'local',
+    name: 'DeepSeek Coder (Colab) - deepseek-coder:6.7b',
+    type: 'ollama-colab',
     status: 'inactive',
     config: {
       model: 'deepseek-coder:6.7b',
-      port: 11434,
-      endpoint: 'https://64a78917a92d.ngrok-free.app'
+      endpoint: 'https://64a78917a92d.ngrok-free.app',
+      port: 11434
     }
   },
   {

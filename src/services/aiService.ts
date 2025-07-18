@@ -1,4 +1,4 @@
-import { AIEngine, LocalAIConfig, RemoteAIConfig, ChatMessage } from '@/types';
+import { AIEngine, LocalAIConfig, RemoteAIConfig, OllamaColabConfig, ChatMessage } from '@/types';
 
 export interface AIResponse {
   content: string;
@@ -33,6 +33,8 @@ export class AIService {
     try {
       if (this.activeEngine.type === 'local') {
         return await this.sendToLocalEngine(message, this.activeEngine.config as LocalAIConfig);
+      } else if (this.activeEngine.type === 'ollama-colab') {
+        return await this.sendToOllamaColab(message, this.activeEngine.config as OllamaColabConfig);
       } else {
         return await this.sendToRemoteEngine(message, this.activeEngine.config as RemoteAIConfig);
       }
@@ -151,6 +153,67 @@ export class AIService {
         content: '',
         success: false,
         error: error instanceof Error ? error.message : 'Erreur de connexion au moteur IA'
+      };
+    }
+  }
+
+  private async sendToOllamaColab(message: string, config: OllamaColabConfig): Promise<AIResponse> {
+    try {
+      console.log('Connexion à Ollama sur Colab:', config.endpoint);
+      
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+        'User-Agent': 'ProfesseurKEBE-OllamaColab/1.0'
+      };
+
+      const payload = {
+        model: config.model,
+        prompt: `Tu es le Professeur KEBE, un expert pédagogique spécialisé dans la création de contenus de formation. Réponds de manière structurée et pédagogique.\n\nQuestion: ${message}`,
+        stream: false,
+        options: {
+          temperature: 0.7,
+          top_p: 0.9,
+          num_predict: 1500
+        }
+      };
+
+      console.log('Ollama Colab - Payload:', payload);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 secondes pour Colab
+
+      const response = await fetch(`${config.endpoint}/api/generate`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+        mode: 'cors',
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Erreur Ollama Colab HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('Ollama Colab - Réponse:', data);
+      
+      const content = data.response || data.text || data.content || 'Réponse générée par Ollama sur Colab';
+      
+      return {
+        content,
+        success: true
+      };
+
+    } catch (error) {
+      console.error('Erreur Ollama Colab:', error);
+      return {
+        content: '',
+        success: false,
+        error: error instanceof Error ? error.message : 'Erreur de connexion à Ollama sur Colab'
       };
     }
   }
@@ -312,7 +375,12 @@ export class AIService {
       const tempActiveEngine = this.activeEngine;
       this.setActiveEngine(engine);
       
-      const response = await this.sendMessage("Test de connexion - réponds simplement 'OK'");
+      let testMessage = "Test de connexion - réponds simplement 'OK'";
+      if (engine.type === 'ollama-colab') {
+        testMessage = "Test de connexion Ollama Colab - réponds 'Ollama sur Colab opérationnel'";
+      }
+      
+      const response = await this.sendMessage(testMessage);
       
       this.activeEngine = tempActiveEngine;
       return response.success;
