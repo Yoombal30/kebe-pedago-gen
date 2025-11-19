@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Wand2, FileText, Download, BookOpen, Settings, Play, CheckCircle, AlertCircle } from 'lucide-react';
+import { Wand2, FileText, Download, Upload, BookOpen, Settings, CheckCircle, AlertCircle, FileUp, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,21 +8,16 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { useToast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 import { useAI } from '@/contexts/AIContext';
-
-interface GeneratedCourse {
-  id: string;
-  title: string;
-  content: string;
-  modules: string[];
-  qcmCount: number;
-  generatedAt: Date;
-  status: 'generating' | 'completed' | 'error';
-}
+import { Course, Module, Document, CourseSection, QCMQuestion } from '@/types';
+import { exportToWord, exportToPowerPoint, exportToPDF, exportToSCORM } from '@/utils/exportUtils';
+import { DocumentProcessor } from '@/services/documentProcessor';
 
 export const CourseGenerator: React.FC = () => {
-  const [courses, setCourses] = useState<GeneratedCourse[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [settings, setSettings] = useState({
@@ -32,418 +26,514 @@ export const CourseGenerator: React.FC = () => {
     includeConclusion: true,
     addExamples: true,
     addWarnings: true,
+    qcmQuestionCount: 10,
     courseStyle: 'structured' as 'structured' | 'conversational' | 'technical'
   });
   const [customInstructions, setCustomInstructions] = useState('');
   const { sendMessage, activeEngine, isConnected } = useAI();
-  const { toast } = useToast();
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    const newDocuments: Document[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      
+      try {
+        const content = await DocumentProcessor.extractText(file);
+        
+        const doc: Document = {
+          id: `${Date.now()}-${i}`,
+          name: file.name,
+          type: file.type.includes('pdf') ? 'pdf' : file.type.includes('word') ? 'docx' : 'txt',
+          size: file.size,
+          uploadedAt: new Date(),
+          content,
+          processed: true
+        };
+
+        newDocuments.push(doc);
+        toast.success(`Document "${file.name}" importé avec succès`);
+      } catch (error) {
+        toast.error(`Erreur lors de l'import de "${file.name}"`);
+        console.error('File upload error:', error);
+      }
+    }
+
+    setDocuments(prev => [...prev, ...newDocuments]);
+  };
+
+  const handleDeleteDocument = (id: string) => {
+    setDocuments(prev => prev.filter(doc => doc.id !== id));
+    toast.success('Document supprimé');
+  };
 
   const handleGenerateCourse = async () => {
     if (!activeEngine || !isConnected) {
-      toast({
-        title: "Moteur IA requis",
-        description: "Veuillez configurer et connecter un moteur IA dans l'administration",
-        variant: "destructive"
-      });
+      toast.error("Veuillez configurer et connecter un moteur IA");
+      return;
+    }
+
+    if (documents.length === 0) {
+      toast.error("Veuillez importer au moins un document");
       return;
     }
 
     setIsGenerating(true);
     setGenerationProgress(0);
 
-    const newCourse: GeneratedCourse = {
-      id: Date.now().toString(),
-      title: 'Cours en génération...',
-      content: '',
-      modules: [],
-      qcmCount: 0,
-      generatedAt: new Date(),
-      status: 'generating'
-    };
-
-    setCourses(prev => [newCourse, ...prev]);
-
     try {
-      // Simulation de progression
-      const progressSteps = [
-        { step: 20, message: "Analyse des modules..." },
-        { step: 40, message: "Génération de l'introduction..." },
-        { step: 60, message: "Création du contenu principal..." },
-        { step: 80, message: "Ajout des exemples et exercices..." },
-        { step: 90, message: "Génération du QCM..." },
-        { step: 100, message: "Finalisation du cours..." }
-      ];
-
-      for (const { step, message } of progressSteps) {
-        setGenerationProgress(step);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-
-      // Génération du contenu via l'IA
-      const prompt = `Génère un cours de formation structuré avec les paramètres suivants :
-      - Style : ${settings.courseStyle}
-      - Inclure introduction : ${settings.includeIntroduction ? 'Oui' : 'Non'}
-      - Inclure conclusion : ${settings.includeConclusion ? 'Oui' : 'Non'}
-      - Ajouter exemples : ${settings.addExamples ? 'Oui' : 'Non'}
-      - Ajouter avertissements : ${settings.addWarnings ? 'Oui' : 'Non'}
-      - Inclure QCM : ${settings.includeQCM ? 'Oui' : 'Non'}
+      // Étape 1: Analyse des documents
+      setGenerationProgress(20);
+      toast.info("Analyse des documents...");
       
-      Instructions personnalisées : ${customInstructions || 'Aucune'}
+      const combinedContent = documents
+        .map(doc => `Document: ${doc.name}\n\n${doc.content}`)
+        .join('\n\n---\n\n');
+
+      const analysis = DocumentProcessor.analyzeContent(combinedContent);
+
+      // Étape 2: Préparation du prompt
+      setGenerationProgress(40);
+      toast.info("Préparation du contenu pédagogique...");
+
+      const prompt = DocumentProcessor.prepareAIPrompt(documents, analysis);
+      const fullPrompt = `${prompt}\n\n${customInstructions ? `\nInstructions supplémentaires: ${customInstructions}` : ''}`;
+
+      // Étape 3: Génération avec l'IA
+      setGenerationProgress(60);
+      toast.info("Génération du cours avec l'IA...");
+
+      await sendMessage(fullPrompt);
+
+      // Étape 4: Parse de la réponse (simuler pour l'instant)
+      setGenerationProgress(80);
+      toast.info("Structuration du cours...");
+
+      // Créer une structure par défaut basée sur l'analyse
+      const courseData = createDefaultCourseStructure("Cours généré avec l'IA", analysis);
+
+      // Étape 5: Créer le cours final
+      setGenerationProgress(100);
       
-      Le cours doit être complet, pédagogique et prêt à être utilisé en formation. Retourne uniquement le contenu du cours structuré en markdown.`;
-
-      const response = await new Promise<string>((resolve) => {
-        // Attendre la réponse de l'IA via le chat
-        const originalSendMessage = sendMessage;
-        sendMessage(prompt).then(() => {
-          // La réponse de l'IA sera dans le chat context
-          resolve("Contenu généré par l'IA - Voir le chat pour plus de détails");
-        });
-      });
-
-      const updatedCourse: GeneratedCourse = {
-        ...newCourse,
-        title: 'Cours généré par IA',
-        content: response,
-        modules: ['Module généré par IA'],
-        qcmCount: settings.includeQCM ? 1 : 0,
-        status: 'completed'
+      const newCourse: Course = {
+        id: Date.now().toString(),
+        title: courseData.title || `Formation ${documents[0].name}`,
+        modules: courseData.modules?.map((m: any, i: number) => ({
+          id: `module-${i}`,
+          title: m.title,
+          prerequisites: m.prerequisites || [],
+          knowledge: m.knowledge || [],
+          skills: m.skills || [],
+          duration: m.duration || 2,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })) || [],
+        documents,
+        content: {
+          introduction: courseData.introduction || '',
+          sections: courseData.sections?.map((s: any, i: number) => ({
+            id: `section-${i}`,
+            title: s.title,
+            explanation: s.explanation,
+            examples: s.examples || [],
+            warnings: s.warnings || [],
+            illustrations: s.illustrations || []
+          })) || [],
+          conclusion: courseData.conclusion || '',
+          qcm: courseData.qcm?.map((q: any, i: number) => ({
+            id: `qcm-${i}`,
+            question: q.question,
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+            explanation: q.explanation
+          })) || [],
+          resources: courseData.resources || []
+        },
+        generatedAt: new Date(),
+        lastModified: new Date()
       };
 
-      setCourses(prev => prev.map(course => 
-        course.id === newCourse.id ? updatedCourse : course
-      ));
-
-      toast({
-        title: "Cours généré avec succès",
-        description: "Le cours est maintenant prêt à être consulté et exporté"
-      });
+      setCourses(prev => [newCourse, ...prev]);
+      toast.success('Cours généré avec succès !');
 
     } catch (error) {
-      const errorCourse: GeneratedCourse = {
-        ...newCourse,
-        title: 'Erreur de génération',
-        status: 'error'
-      };
-
-      setCourses(prev => prev.map(course => 
-        course.id === newCourse.id ? errorCourse : course
-      ));
-
-      toast({
-        title: "Erreur de génération",
-        description: "Impossible de générer le cours. Vérifiez votre connexion IA.",
-        variant: "destructive"
-      });
+      console.error('Course generation error:', error);
+      toast.error('Erreur lors de la génération du cours');
     } finally {
       setIsGenerating(false);
       setGenerationProgress(0);
     }
   };
 
-  const handleExport = (courseId: string, format: 'pdf' | 'docx' | 'pptx' | 'scorm') => {
+  const createDefaultCourseStructure = (aiResponse: string, analysis: any): any => {
+    return {
+      title: `Formation basée sur les documents`,
+      introduction: aiResponse.substring(0, 500),
+      modules: analysis.suggestedModules.map((title: string, i: number) => ({
+        title,
+        duration: 2,
+        prerequisites: [],
+        knowledge: analysis.concepts,
+        skills: [`Compétence ${i + 1}`]
+      })),
+      sections: [{
+        title: 'Contenu principal',
+        explanation: aiResponse,
+        examples: [],
+        warnings: []
+      }],
+      qcm: [],
+      conclusion: 'Formation complète à personnaliser.',
+      resources: []
+    };
+  };
+
+  const handleExport = async (courseId: string, format: 'pdf' | 'docx' | 'pptx' | 'scorm') => {
     const course = courses.find(c => c.id === courseId);
     if (!course) return;
 
-    // Simulation de l'export
-    const formats = {
-      pdf: 'PDF',
-      docx: 'Word',
-      pptx: 'PowerPoint',
-      scorm: 'SCORM'
-    };
-
-    toast({
-      title: `Export ${formats[format]}`,
-      description: `Le cours "${course.title}" a été exporté au format ${formats[format]}`
-    });
-
-    // En réalité, ici on créerait et téléchargerait le fichier
-    const element = document.createElement('a');
-    const file = new Blob([course.content], { type: 'text/plain' });
-    element.href = URL.createObjectURL(file);
-    element.download = `${course.title}.${format === 'docx' ? 'txt' : format}`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
+    try {
+      switch (format) {
+        case 'docx':
+          await exportToWord(course);
+          break;
+        case 'pptx':
+          await exportToPowerPoint(course);
+          break;
+        case 'pdf':
+          await exportToPDF(course);
+          break;
+        case 'scorm':
+          await exportToSCORM(course);
+          break;
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error(`Erreur lors de l'export ${format.toUpperCase()}`);
+    }
   };
 
   const handleDeleteCourse = (courseId: string) => {
-    setCourses(prev => prev.filter(course => course.id !== courseId));
-    toast({
-      title: "Cours supprimé",
-      description: "Le cours a été retiré de la liste"
-    });
+    setCourses(prev => prev.filter(c => c.id !== courseId));
+    toast.success('Cours supprimé');
   };
 
   return (
-    <div className="p-6">
-      <div className="flex items-center gap-2 mb-6">
-        <Wand2 className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold">Générateur de cours</h1>
-      </div>
-
-      <Tabs defaultValue="generate" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="generate">Générer</TabsTrigger>
-          <TabsTrigger value="courses">Cours générés</TabsTrigger>
-          <TabsTrigger value="settings">Paramètres</TabsTrigger>
+    <div className="space-y-6">
+      <Tabs defaultValue="generate" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="generate">
+            <Wand2 className="w-4 h-4 mr-2" />
+            Générer
+          </TabsTrigger>
+          <TabsTrigger value="courses">
+            <BookOpen className="w-4 h-4 mr-2" />
+            Cours générés ({courses.length})
+          </TabsTrigger>
+          <TabsTrigger value="settings">
+            <Settings className="w-4 h-4 mr-2" />
+            Paramètres
+          </TabsTrigger>
         </TabsList>
 
+        {/* Onglet Génération */}
         <TabsContent value="generate" className="space-y-6">
+          {/* Import de documents */}
           <Card>
             <CardHeader>
-              <CardTitle>Génération automatique de cours</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="w-5 h-5" />
+                Documents sources
+              </CardTitle>
               <CardDescription>
-                Créez un cours complet à partir de vos modules et documents
+                Importez vos documents (PDF, Word, TXT) pour générer une formation
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {!activeEngine || !isConnected ? (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-yellow-600" />
-                    <span className="font-medium text-yellow-800">Configuration requise</span>
-                  </div>
-                  <p className="text-yellow-700 mt-1">
-                    Veuillez configurer un moteur IA dans l'onglet Administration pour utiliser le générateur.
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="font-medium text-green-800">Prêt à générer</span>
-                  </div>
-                  <p className="text-green-700 mt-1">
-                    Moteur IA connecté : {activeEngine.name}
-                  </p>
-                </div>
-              )}
-
-              <div>
-                <Label htmlFor="instructions">Instructions personnalisées (optionnel)</Label>
-                <Textarea
-                  id="instructions"
-                  value={customInstructions}
-                  onChange={(e) => setCustomInstructions(e.target.value)}
-                  placeholder="Ajoutez des instructions spécifiques pour personnaliser la génération du cours..."
-                  rows={4}
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <Button 
-                  onClick={handleGenerateCourse}
-                  disabled={isGenerating || !activeEngine || !isConnected}
+              <div className="flex items-center gap-4">
+                <Input
+                  type="file"
+                  accept=".pdf,.docx,.doc,.txt"
+                  multiple
+                  onChange={handleFileUpload}
                   className="flex-1"
-                >
-                  <Wand2 className="h-4 w-4 mr-2" />
-                  {isGenerating ? 'Génération en cours...' : 'Générer le cours'}
+                />
+                <Button variant="outline" size="sm">
+                  <FileUp className="w-4 h-4 mr-2" />
+                  Parcourir
                 </Button>
               </div>
 
-              {isGenerating && (
+              {documents.length > 0 && (
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Génération en cours...</span>
-                    <span>{generationProgress}%</span>
+                  <Label>Documents importés ({documents.length})</Label>
+                  <div className="space-y-2">
+                    {documents.map(doc => (
+                      <div key={doc.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <FileText className="w-4 h-4" />
+                          <div>
+                            <p className="font-medium">{doc.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {(doc.size / 1024).toFixed(2)} KB • {doc.type.toUpperCase()}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteDocument(doc.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
-                  <Progress value={generationProgress} />
                 </div>
               )}
             </CardContent>
           </Card>
+
+          {/* Instructions personnalisées */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Instructions personnalisées</CardTitle>
+              <CardDescription>
+                Ajoutez des consignes spécifiques pour la génération du cours
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                placeholder="Ex: Créer une formation pour des débutants, mettre l'accent sur la pratique, inclure des études de cas réels..."
+                value={customInstructions}
+                onChange={(e) => setCustomInstructions(e.target.value)}
+                rows={4}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Bouton de génération */}
+          <Card>
+            <CardContent className="pt-6">
+              {isGenerating ? (
+                <div className="space-y-4">
+                  <Progress value={generationProgress} />
+                  <p className="text-center text-sm text-muted-foreground">
+                    Génération en cours... {generationProgress}%
+                  </p>
+                </div>
+              ) : (
+                <Button
+                  onClick={handleGenerateCourse}
+                  disabled={documents.length === 0 || !isConnected}
+                  className="w-full"
+                  size="lg"
+                >
+                  <Wand2 className="w-5 h-5 mr-2" />
+                  Générer le cours complet
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Statut moteur IA */}
+          {!isConnected && (
+            <Card className="border-destructive">
+              <CardContent className="pt-6 flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-destructive" />
+                <p className="text-sm">
+                  Moteur IA non connecté. Configurez un moteur dans l'onglet Administration.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
-        <TabsContent value="courses" className="space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold mb-2">Cours générés</h2>
-            <p className="text-muted-foreground">Liste des cours créés automatiquement</p>
-          </div>
+        {/* Onglet Cours générés */}
+        <TabsContent value="courses" className="space-y-4">
+          {courses.length === 0 ? (
+            <Card>
+              <CardContent className="pt-12 pb-12 text-center">
+                <BookOpen className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-semibold mb-2">Aucun cours généré</h3>
+                <p className="text-muted-foreground mb-4">
+                  Commencez par importer des documents et générer votre premier cours
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            courses.map(course => (
+              <Card key={course.id}>
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle>{course.title}</CardTitle>
+                      <CardDescription>
+                        Généré le {new Date(course.generatedAt).toLocaleDateString('fr-FR')}
+                      </CardDescription>
+                    </div>
+                    <Badge variant="secondary">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Complété
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Modules</p>
+                      <p className="font-semibold">{course.modules.length}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Sections</p>
+                      <p className="font-semibold">{course.content.sections.length}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Questions QCM</p>
+                      <p className="font-semibold">{course.content.qcm.length}</p>
+                    </div>
+                  </div>
 
-          <div className="grid gap-4">
-            {courses.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Aucun cours généré</h3>
-                  <p className="text-muted-foreground text-center mb-4">
-                    Utilisez le générateur pour créer votre premier cours automatique
-                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleExport(course.id, 'docx')}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Word
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleExport(course.id, 'pptx')}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      PowerPoint
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExport(course.id, 'pdf')}
+                      disabled
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      PDF
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteCourse(course.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
-            ) : (
-              courses.map((course) => (
-                <Card key={course.id}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg">{course.title}</CardTitle>
-                        <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                          <span>Généré le {course.generatedAt.toLocaleDateString()}</span>
-                          <span>{course.modules.length} modules</span>
-                          {course.qcmCount > 0 && <span>{course.qcmCount} questions QCM</span>}
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <Badge variant={
-                          course.status === 'completed' ? 'default' :
-                          course.status === 'generating' ? 'secondary' :
-                          'destructive'
-                        }>
-                          {course.status === 'completed' && <CheckCircle className="h-3 w-3 mr-1" />}
-                          {course.status === 'generating' && <Play className="h-3 w-3 mr-1" />}
-                          {course.status === 'error' && <AlertCircle className="h-3 w-3 mr-1" />}
-                          {course.status === 'completed' ? 'Terminé' :
-                           course.status === 'generating' ? 'En cours' : 'Erreur'}
-                        </Badge>
-                        
-                        {course.status === 'completed' && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleExport(course.id, 'pdf')}
-                            >
-                              <Download className="h-4 w-4 mr-1" />
-                              PDF
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleExport(course.id, 'docx')}
-                            >
-                              <Download className="h-4 w-4 mr-1" />
-                              Word
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleExport(course.id, 'pptx')}
-                            >
-                              <Download className="h-4 w-4 mr-1" />
-                              PowerPoint
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleExport(course.id, 'scorm')}
-                            >
-                              <Download className="h-4 w-4 mr-1" />
-                              SCORM
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  
-                  {course.status === 'completed' && (
-                    <CardContent>
-                      <div className="bg-muted p-4 rounded-lg">
-                        <p className="text-sm text-muted-foreground mb-2">Aperçu du contenu :</p>
-                        <div className="text-sm line-clamp-4 whitespace-pre-wrap">
-                          {course.content.substring(0, 300)}...
-                        </div>
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-              ))
-            )}
-          </div>
+            ))
+          )}
         </TabsContent>
 
-        <TabsContent value="settings" className="space-y-6">
+        {/* Onglet Paramètres */}
+        <TabsContent value="settings" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Paramètres de génération</CardTitle>
               <CardDescription>
-                Personnalisez le style et le contenu des cours générés
+                Personnalisez le contenu et le style de vos formations
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="include-qcm">Inclure un QCM</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Ajouter des questions à choix multiples à la fin du cours
-                    </p>
-                  </div>
+                  <Label htmlFor="includeIntro">Inclure une introduction</Label>
                   <Switch
-                    id="include-qcm"
-                    checked={settings.includeQCM}
-                    onCheckedChange={(checked) => 
-                      setSettings(prev => ({ ...prev, includeQCM: checked }))
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="include-intro">Inclure une introduction</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Ajouter une introduction au début du cours
-                    </p>
-                  </div>
-                  <Switch
-                    id="include-intro"
+                    id="includeIntro"
                     checked={settings.includeIntroduction}
-                    onCheckedChange={(checked) => 
-                      setSettings(prev => ({ ...prev, includeIntroduction: checked }))
+                    onCheckedChange={(checked) =>
+                      setSettings({ ...settings, includeIntroduction: checked })
                     }
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="include-conclusion">Inclure une conclusion</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Ajouter une conclusion à la fin du cours
-                    </p>
-                  </div>
+                  <Label htmlFor="includeConclusion">Inclure une conclusion</Label>
                   <Switch
-                    id="include-conclusion"
+                    id="includeConclusion"
                     checked={settings.includeConclusion}
-                    onCheckedChange={(checked) => 
-                      setSettings(prev => ({ ...prev, includeConclusion: checked }))
+                    onCheckedChange={(checked) =>
+                      setSettings({ ...settings, includeConclusion: checked })
                     }
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="add-examples">Ajouter des exemples</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Inclure des exemples pratiques dans chaque section
-                    </p>
-                  </div>
+                  <Label htmlFor="addExamples">Ajouter des exemples</Label>
                   <Switch
-                    id="add-examples"
+                    id="addExamples"
                     checked={settings.addExamples}
-                    onCheckedChange={(checked) => 
-                      setSettings(prev => ({ ...prev, addExamples: checked }))
+                    onCheckedChange={(checked) =>
+                      setSettings({ ...settings, addExamples: checked })
                     }
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="add-warnings">Ajouter des avertissements</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Inclure des points d'attention et de sécurité
-                    </p>
-                  </div>
+                  <Label htmlFor="addWarnings">Ajouter des points d'attention</Label>
                   <Switch
-                    id="add-warnings"
+                    id="addWarnings"
                     checked={settings.addWarnings}
-                    onCheckedChange={(checked) => 
-                      setSettings(prev => ({ ...prev, addWarnings: checked }))
+                    onCheckedChange={(checked) =>
+                      setSettings({ ...settings, addWarnings: checked })
                     }
                   />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="includeQCM">Générer un QCM</Label>
+                  <Switch
+                    id="includeQCM"
+                    checked={settings.includeQCM}
+                    onCheckedChange={(checked) =>
+                      setSettings({ ...settings, includeQCM: checked })
+                    }
+                  />
+                </div>
+
+                {settings.includeQCM && (
+                  <div className="space-y-2 pl-4">
+                    <Label htmlFor="qcmCount">Nombre de questions QCM</Label>
+                    <Input
+                      id="qcmCount"
+                      type="number"
+                      min="5"
+                      max="20"
+                      value={settings.qcmQuestionCount}
+                      onChange={(e) =>
+                        setSettings({ ...settings, qcmQuestionCount: parseInt(e.target.value) })
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Style de cours</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['structured', 'conversational', 'technical'] as const).map((style) => (
+                    <Button
+                      key={style}
+                      variant={settings.courseStyle === style ? 'default' : 'outline'}
+                      onClick={() => setSettings({ ...settings, courseStyle: style })}
+                    >
+                      {style === 'structured' && 'Structuré'}
+                      {style === 'conversational' && 'Conversationnel'}
+                      {style === 'technical' && 'Technique'}
+                    </Button>
+                  ))}
                 </div>
               </div>
             </CardContent>
