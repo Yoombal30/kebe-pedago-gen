@@ -1,4 +1,4 @@
-import { AIEngine, LocalAIConfig, RemoteAIConfig, OllamaColabConfig, ChatMessage } from '@/types';
+import { AIEngine, AIEngineConfig } from '@/types';
 
 export interface AIResponse {
   content: string;
@@ -21,6 +21,10 @@ export class AIService {
     this.activeEngine = engine;
   }
 
+  getActiveEngine(): AIEngine | null {
+    return this.activeEngine;
+  }
+
   async sendMessage(message: string): Promise<AIResponse> {
     if (!this.activeEngine) {
       return {
@@ -31,13 +35,7 @@ export class AIService {
     }
 
     try {
-      if (this.activeEngine.type === 'local') {
-        return await this.sendToLocalEngine(message, this.activeEngine.config as LocalAIConfig);
-      } else if (this.activeEngine.type === 'ollama-colab') {
-        return await this.sendToOllamaColab(message, this.activeEngine.config as OllamaColabConfig);
-      } else {
-        return await this.sendToRemoteEngine(message, this.activeEngine.config as RemoteAIConfig);
-      }
+      return await this.sendToAPI(message, this.activeEngine.config);
     } catch (error) {
       console.error('Erreur de connexion au moteur IA:', error);
       return {
@@ -48,146 +46,55 @@ export class AIService {
     }
   }
 
-  private async sendToLocalEngine(message: string, config: LocalAIConfig): Promise<AIResponse> {
+  private async sendToAPI(message: string, config: AIEngineConfig): Promise<AIResponse> {
     try {
-      console.log('Tentative de connexion à:', config.endpoint);
+      console.log('Connexion à:', config.endpoint, 'Modèle:', config.model);
       
-      // Configuration des headers avec timeout plus long
+      // Configuration des headers
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       };
 
-      // Headers spéciaux pour ngrok
+      // Headers pour ngrok
       if (config.endpoint.includes('ngrok')) {
         headers['ngrok-skip-browser-warning'] = 'true';
-        headers['User-Agent'] = 'ProfesseurKEBE/1.0';
+        headers['User-Agent'] = 'ProfesseurKEBE/2.0';
       }
 
-      // Payload pour Ollama
-      const payload = {
-        model: config.model,
-        prompt: `Tu es le Professeur KEBE, un expert pédagogique spécialisé dans la création de contenus de formation. Réponds de manière structurée et pédagogique.\n\nQuestion: ${message}`,
-        stream: false,
-        options: {
-          temperature: 0.7,
-          top_p: 0.9,
-        }
-      };
-
-      console.log('Payload envoyé:', payload);
-
-      // Essayer d'abord l'API Ollama standard
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes timeout
-
-      try {
-        const response = await fetch(`${config.endpoint}/api/generate`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(payload),
-          signal: controller.signal,
-          mode: 'cors',
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(`Erreur HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        console.log('Réponse reçue:', data);
-        
-        const content = data.response || data.text || data.content || data.choices?.[0]?.message?.content || 'Réponse reçue du modèle';
-        
-        return {
-          content,
-          success: true
-        };
-
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-        console.log('Erreur API Ollama, essai endpoint direct:', fetchError);
-        
-        // Fallback: essayer l'endpoint direct avec un format différent
-        const simplePayload = {
-          prompt: `Tu es le Professeur KEBE, un expert pédagogique spécialisé dans la création de contenus de formation. Réponds de manière structurée et pédagogique.\n\nQuestion: ${message}`,
-          max_tokens: 1500,
-          temperature: 0.7
-        };
-
-        const fallbackController = new AbortController();
-        const fallbackTimeoutId = setTimeout(() => fallbackController.abort(), 20000);
-
-        try {
-          const fallbackResponse = await fetch(config.endpoint, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(simplePayload),
-            signal: fallbackController.signal,
-            mode: 'cors',
-          });
-
-          clearTimeout(fallbackTimeoutId);
-
-          if (!fallbackResponse.ok) {
-            throw new Error(`Erreur HTTP ${fallbackResponse.status}: ${fallbackResponse.statusText}`);
-          }
-
-          const fallbackData = await fallbackResponse.json();
-          const content = fallbackData.response || fallbackData.text || fallbackData.content || 'Réponse reçue du modèle';
-          
-          return {
-            content,
-            success: true
-          };
-        } catch (fallbackError) {
-          clearTimeout(fallbackTimeoutId);
-          throw new Error(`Connexion impossible - Vérifiez que le serveur ${config.endpoint} est accessible`);
-        }
+      // Ajouter la clé API si présente
+      if (config.apiKey && config.apiKey.trim() !== '') {
+        headers['Authorization'] = `Bearer ${config.apiKey}`;
       }
-    } catch (error) {
-      console.error('Erreur complète:', error);
-      return {
-        content: '',
-        success: false,
-        error: error instanceof Error ? error.message : 'Erreur de connexion au moteur IA'
-      };
-    }
-  }
 
-  private async sendToOllamaColab(message: string, config: OllamaColabConfig): Promise<AIResponse> {
-    try {
-      console.log('Connexion à Ollama sur Colab:', config.endpoint, 'Modèle:', config.model);
-      
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'ngrok-skip-browser-warning': 'true',
-        'User-Agent': 'ProfesseurKEBE-OllamaColab/1.0'
-      };
+      const systemPrompt = `Tu es le Professeur KEBE, un expert pédagogique spécialisé dans la création de contenus de formation professionnelle. 
 
-      const payload = {
-        model: config.model,
-        prompt: `Tu es le Professeur KEBE, un expert pédagogique spécialisé dans la création de contenus de formation. Réponds de manière structurée et pédagogique.\n\nQuestion: ${message}`,
-        stream: false,
-        options: {
-          temperature: 0.7,
-          top_p: 0.9,
-          num_predict: 1500
-        }
-      };
+Tes capacités :
+- Création de modules de formation structurés
+- Génération de cours complets avec introduction, sections et conclusion
+- Conception de QCM et évaluations
+- Analyse et synthèse de documents pédagogiques
+- Recommandations méthodologiques
 
-      console.log('Ollama Colab - Tentative de connexion à:', `${config.endpoint}/api/generate`);
+Réponds de manière claire, structurée et professionnelle.`;
 
+      // Construire le payload selon le format API
+      const payload = this.buildPayload(config, systemPrompt, message);
+
+      const timeout = config.timeout || 60000;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        console.log('Timeout atteint pour Ollama Colab');
+        console.log('Timeout atteint:', timeout, 'ms');
         controller.abort();
-      }, 60000); // 60 secondes pour Colab
+      }, timeout);
 
-      const response = await fetch(`${config.endpoint}/api/generate`, {
+      // Déterminer l'endpoint exact
+      const apiEndpoint = this.getAPIEndpoint(config.endpoint);
+
+      console.log('Envoi à:', apiEndpoint);
+      console.log('Payload:', JSON.stringify(payload, null, 2));
+
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
@@ -197,17 +104,17 @@ export class AIService {
 
       clearTimeout(timeoutId);
 
-      console.log('Ollama Colab - Statut de réponse:', response.status, response.statusText);
+      console.log('Statut réponse:', response.status, response.statusText);
 
       if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Impossible de lire la réponse d\'erreur');
-        throw new Error(`Erreur Ollama Colab HTTP ${response.status}: ${response.statusText}. Détails: ${errorText}`);
+        const errorText = await response.text().catch(() => 'Erreur inconnue');
+        throw new Error(`Erreur HTTP ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
-      console.log('Ollama Colab - Réponse reçue:', data);
+      console.log('Réponse reçue:', data);
       
-      const content = data.response || data.text || data.content || 'Réponse générée par Ollama sur Colab';
+      const content = this.extractContent(data);
       
       return {
         content,
@@ -215,14 +122,14 @@ export class AIService {
       };
 
     } catch (error) {
-      console.error('Erreur Ollama Colab pour', config.model, ':', error);
+      console.error('Erreur API:', error);
       
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
           return {
             content: '',
             success: false,
-            error: `Timeout: Le modèle ${config.model} sur Colab ne répond pas dans les délais`
+            error: `Timeout: Le serveur ne répond pas dans les délais (${config.timeout || 60000}ms)`
           };
         }
         
@@ -230,7 +137,7 @@ export class AIService {
           return {
             content: '',
             success: false,
-            error: `Impossible de se connecter à ${config.endpoint}. Vérifiez que Colab est en cours d'exécution et que ngrok est actif.`
+            error: `Impossible de se connecter à ${config.endpoint}. Vérifiez que le serveur est accessible.`
           };
         }
       }
@@ -238,161 +145,88 @@ export class AIService {
       return {
         content: '',
         success: false,
-        error: error instanceof Error ? error.message : 'Erreur de connexion à Ollama sur Colab'
+        error: error instanceof Error ? error.message : 'Erreur de connexion'
       };
     }
   }
 
-  private async sendToRemoteEngine(message: string, config: RemoteAIConfig): Promise<AIResponse> {
-    // Validation des clés API (sauf demo et certains providers)
-    if (config.provider !== 'demo' && config.provider !== 'huggingface' && (!config.apiKey || config.apiKey.trim() === '')) {
-      throw new Error(`Clé API manquante pour ${config.provider}. Veuillez configurer votre clé API.`);
+  private getAPIEndpoint(baseEndpoint: string): string {
+    // Si l'endpoint contient déjà /api/ ou /v1/, l'utiliser tel quel
+    if (baseEndpoint.includes('/api/') || baseEndpoint.includes('/v1/')) {
+      return baseEndpoint;
     }
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
-    // Configuration des headers selon le provider
-    if (config.provider === 'mistral') {
-      headers['Authorization'] = `Bearer ${config.apiKey}`;
-    } else if (config.provider === 'openrouter') {
-      headers['Authorization'] = `Bearer ${config.apiKey}`;
-      headers['HTTP-Referer'] = window.location.origin;
-      headers['X-Title'] = 'Professeur KEBE';
-    } else if (config.provider === 'anthropic') {
-      headers['x-api-key'] = config.apiKey;
-      headers['anthropic-version'] = '2023-06-01';
-    } else if (config.provider === 'huggingface') {
-      if (config.apiKey && config.apiKey.trim() !== '') {
-        headers['Authorization'] = `Bearer ${config.apiKey}`;
-      }
-    } else if (config.provider === 'demo') {
-      // Headers minimum pour la démo
-      headers['Accept'] = 'application/json';
-    } else {
-      headers['Authorization'] = `Bearer ${config.apiKey}`;
+    
+    // Pour Ollama, ajouter /api/generate
+    if (baseEndpoint.includes('localhost:11434') || baseEndpoint.includes('ngrok')) {
+      return `${baseEndpoint}/api/generate`;
     }
+    
+    // Pour les API OpenAI-compatible, ajouter /chat/completions
+    if (baseEndpoint.includes('openai') || baseEndpoint.includes('groq') || 
+        baseEndpoint.includes('together') || baseEndpoint.includes('mistral') ||
+        baseEndpoint.includes('openrouter')) {
+      return `${baseEndpoint}/chat/completions`;
+    }
+    
+    return baseEndpoint;
+  }
 
-    const payload = this.buildPayload(config.provider, message, config);
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-    try {
-      const response = await fetch(config.endpoint, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Erreur inconnue');
-        if (response.status === 401) {
-          throw new Error(`Clé API invalide pour ${config.provider}. Vérifiez votre clé API.`);
-        }
-        throw new Error(`Erreur HTTP ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
-      const content = this.extractContent(config.provider, data);
-
+  private buildPayload(config: AIEngineConfig, systemPrompt: string, message: string): any {
+    const endpoint = config.endpoint.toLowerCase();
+    
+    // Format Ollama
+    if (endpoint.includes('localhost:11434') || endpoint.includes('ngrok')) {
       return {
-        content: content || 'Réponse vide',
-        success: true
+        model: config.model,
+        prompt: `${systemPrompt}\n\nQuestion: ${message}`,
+        stream: false,
+        options: {
+          temperature: 0.7,
+          top_p: 0.9,
+          num_predict: 2000
+        }
       };
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Timeout de connexion - Le serveur met trop de temps à répondre');
-      }
-      throw error;
     }
+    
+    // Format OpenAI / API standard
+    return {
+      model: config.model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: message }
+      ],
+      temperature: 0.7,
+      max_tokens: 2000
+    };
   }
 
-  private buildPayload(provider: string, message: string, config: RemoteAIConfig) {
-    const systemPrompt = "Tu es le Professeur KEBE, un expert pédagogique spécialisé dans la création de contenus de formation. Réponds de manière structurée et pédagogique.";
-
-    switch (provider) {
-      case 'mistral':
-        return {
-          model: config.model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: message }
-          ],
-          temperature: 0.7,
-          max_tokens: 1500
-        };
-
-      case 'openrouter':
-        return {
-          model: config.model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: message }
-          ],
-          temperature: 0.7,
-          max_tokens: 1500
-        };
-
-      case 'anthropic':
-        return {
-          model: config.model,
-          max_tokens: 1500,
-          messages: [
-            { role: 'user', content: `${systemPrompt}\n\n${message}` }
-          ]
-        };
-
-      case 'huggingface':
-        return {
-          inputs: `${systemPrompt}\n\nQuestion: ${message}`,
-          parameters: {
-            max_new_tokens: 250,
-            temperature: 0.7,
-            return_full_text: false
-          }
-        };
-
-      case 'demo':
-        // Simulation d'un appel API avec réponse fixe
-        return {
-          simulation: true,
-          user_message: message,
-          timestamp: new Date().toISOString()
-        };
-
-      default:
-        return {
-          prompt: `${systemPrompt}\n\nQuestion: ${message}`,
-          max_tokens: 1500,
-          temperature: 0.7
-        };
+  private extractContent(data: any): string {
+    // Format Ollama
+    if (data.response) {
+      return data.response;
     }
-  }
-
-  private extractContent(provider: string, data: any): string {
-    switch (provider) {
-      case 'mistral':
-      case 'openrouter':
-        return data.choices?.[0]?.message?.content || '';
-      
-      case 'anthropic':
-        return data.content?.[0]?.text || '';
-      
-      case 'huggingface':
-        return data.generated_text || data[0]?.generated_text || data.response || '';
-      
-      case 'demo':
-        return "✅ **Connexion de démonstration réussie !**\n\n🎓 Je suis le **Professeur KEBE**, votre expert pédagogique IA, prêt à vous accompagner dans tous vos projets de formation !\n\n**Mes spécialités :**\n- 📚 Création de modules de formation interactifs\n- 🎯 Génération de cours structurés et engageants  \n- 📝 Conception de QCM et évaluations\n- 💡 Optimisation de contenus pédagogiques\n\n✨ **Commençons ensemble !** Quel est votre projet de formation aujourd'hui ?";
-      
-      default:
-        return data.response || data.text || data.content || '';
+    
+    // Format OpenAI / standard
+    if (data.choices?.[0]?.message?.content) {
+      return data.choices[0].message.content;
     }
+    
+    // Format Anthropic
+    if (data.content?.[0]?.text) {
+      return data.content[0].text;
+    }
+    
+    // Format HuggingFace
+    if (data.generated_text || data[0]?.generated_text) {
+      return data.generated_text || data[0].generated_text;
+    }
+    
+    // Fallback
+    if (data.text || data.content) {
+      return data.text || data.content;
+    }
+    
+    return 'Réponse reçue mais format non reconnu';
   }
 
   async testEngine(engine: AIEngine): Promise<boolean> {
@@ -400,12 +234,7 @@ export class AIService {
       const tempActiveEngine = this.activeEngine;
       this.setActiveEngine(engine);
       
-      let testMessage = "Test de connexion - réponds simplement 'OK'";
-      if (engine.type === 'ollama-colab') {
-        testMessage = "Test de connexion Ollama Colab - réponds 'Ollama sur Colab opérationnel'";
-      }
-      
-      const response = await this.sendMessage(testMessage);
+      const response = await this.sendMessage("Test de connexion - réponds 'OK' en une ligne");
       
       this.activeEngine = tempActiveEngine;
       return response.success;
