@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Wifi, WifiOff, Activity, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { Wifi, WifiOff, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useAI } from '@/contexts/AIContext';
@@ -62,10 +61,7 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
         <div className="text-xs text-muted-foreground">
           <div>{activeEngine.name}</div>
           <div className="flex items-center gap-1">
-            <span>{activeEngine.type === 'local' ? '🏠' : '🌐'}</span>
-            {'config' in activeEngine && 'model' in activeEngine.config && (
-              <span>{activeEngine.config.model}</span>
-            )}
+            <span>{activeEngine.config.model}</span>
           </div>
         </div>
       )}

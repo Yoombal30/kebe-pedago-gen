@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { ChatMessage, AIEngine, AdminSettings, LogEntry } from '@/types';
+import { ChatMessage, AIEngine, AdminSettings, LogEntry, AIEngineConfig } from '@/types';
 import { aiService, AIResponse } from '@/services/aiService';
 
 interface AIContextType {
@@ -28,282 +28,59 @@ export const useAI = () => {
   return context;
 };
 
+// Configuration par défaut simplifiée - uniquement endpoint + model + apiKey optionnel
 const DEFAULT_ENGINES: AIEngine[] = [
   {
-    id: 'demo-ai',
-    name: 'Assistant IA (Demo)',
-    type: 'remote',
+    id: 'ollama-colab',
+    name: 'Ollama Colab (DeepSeek)',
     status: 'active',
     config: {
-      provider: 'demo',
-      apiKey: '',
-      model: 'demo-model',
-      endpoint: 'https://jsonplaceholder.typicode.com/posts'
-    }
-  },
-  // Ollama sur Colab (Pas de clé API requise)
-  {
-    id: 'professeur-kebe-colab',
-    name: 'Professeur KEBE (Colab) - internlm2:latest',
-    type: 'ollama-colab',
-    status: 'inactive',
-    config: {
-      model: 'internlm2:latest',
-      endpoint: 'https://64a78917a92d.ngrok-free.app',
-      port: 11434
-    }
-  },
-  {
-    id: 'deepseek-colab',
-    name: 'DeepSeek Coder (Colab) - deepseek-coder:6.7b',
-    type: 'ollama-colab',
-    status: 'inactive',
-    config: {
-      model: 'deepseek-coder:6.7b',
       endpoint: 'https://427fce534125.ngrok-free.app',
-      port: 11434
-    }
-  },
-  {
-    id: 'llama3-colab',
-    name: 'Llama 3.2 (Colab)',
-    type: 'local',
-    status: 'inactive',
-    config: {
-      model: 'llama3.2:latest',
-      port: 11434,
-      endpoint: 'https://64a78917a92d.ngrok-free.app'
-    }
-  },
-  {
-    id: 'codellama-colab',
-    name: 'Code Llama (Colab)',
-    type: 'local',
-    status: 'inactive',
-    config: {
-      model: 'codellama:7b',
-      port: 11434,
-      endpoint: 'https://64a78917a92d.ngrok-free.app'
-    }
-  },
-  {
-    id: 'mistral-colab',
-    name: 'Mistral 7B (Colab)',
-    type: 'local',
-    status: 'inactive',
-    config: {
-      model: 'mistral:7b',
-      port: 11434,
-      endpoint: 'https://64a78917a92d.ngrok-free.app'
-    }
-  },
-  // Local Ollama Engines
-  {
-    id: 'ollama-llama3',
-    name: 'Ollama - Llama 3.2 (Local)',
-    type: 'local',
-    status: 'inactive',
-    config: {
-      model: 'llama3.2:latest',
-      port: 11434,
-      endpoint: 'http://localhost:11434'
-    }
-  },
-  {
-    id: 'ollama-deepseek',
-    name: 'Ollama - DeepSeek Coder (Local)',
-    type: 'local',
-    status: 'inactive',
-    config: {
       model: 'deepseek-coder:6.7b',
-      port: 11434,
-      endpoint: 'http://localhost:11434'
+      timeout: 60000
     }
   },
   {
-    id: 'ollama-codellama',
-    name: 'Ollama - Code Llama (Local)',
-    type: 'local',
+    id: 'ollama-local',
+    name: 'Ollama Local',
     status: 'inactive',
     config: {
-      model: 'codellama:7b',
-      port: 11434,
-      endpoint: 'http://localhost:11434'
+      endpoint: 'http://localhost:11434',
+      model: 'llama3.2:latest',
+      timeout: 30000
     }
   },
   {
-    id: 'ollama-mistral',
-    name: 'Ollama - Mistral 7B (Local)',
-    type: 'local',
+    id: 'openai',
+    name: 'OpenAI GPT-4',
     status: 'inactive',
     config: {
-      model: 'mistral:7b',
-      port: 11434,
-      endpoint: 'http://localhost:11434'
-    }
-  },
-  {
-    id: 'ollama-phi3',
-    name: 'Ollama - Phi-3 (Local)',
-    type: 'local',
-    status: 'inactive',
-    config: {
-      model: 'phi3:latest',
-      port: 11434,
-      endpoint: 'http://localhost:11434'
-    }
-  },
-  {
-    id: 'ollama-gemma',
-    name: 'Ollama - Gemma 2B (Local)',
-    type: 'local',
-    status: 'inactive',
-    config: {
-      model: 'gemma:2b',
-      port: 11434,
-      endpoint: 'http://localhost:11434'
-    }
-  },
-  {
-    id: 'ollama-qwen',
-    name: 'Ollama - Qwen 2.5 (Local)',
-    type: 'local',
-    status: 'inactive',
-    config: {
-      model: 'qwen2.5:7b',
-      port: 11434,
-      endpoint: 'http://localhost:11434'
-    }
-  },
-  // Other Local Providers
-  {
-    id: 'lmstudio-local',
-    name: 'LM Studio (Local)',
-    type: 'local',
-    status: 'inactive',
-    config: {
-      model: 'llama-3.2-3b-instruct',
-      port: 1234,
-      endpoint: 'http://localhost:1234/v1'
-    }
-  },
-  {
-    id: 'textgen-webui',
-    name: 'Text Generation WebUI (Local)',
-    type: 'local',
-    status: 'inactive',
-    config: {
-      model: 'local-model',
-      port: 5000,
-      endpoint: 'http://localhost:5000/v1'
-    }
-  },
-  {
-    id: 'koboldcpp-local',
-    name: 'KoboldCpp (Local)',
-    type: 'local',
-    status: 'inactive',
-    config: {
-      model: 'kobold-model',
-      port: 5001,
-      endpoint: 'http://localhost:5001/v1'
-    }
-  },
-  // Remote API Providers
-  {
-    id: 'openai-api',
-    name: 'OpenAI GPT',
-    type: 'remote',
-    status: 'inactive',
-    config: {
-      provider: 'openai',
+      endpoint: 'https://api.openai.com/v1/chat/completions',
+      model: 'gpt-4-turbo-preview',
       apiKey: '',
-      model: 'gpt-3.5-turbo',
-      endpoint: 'https://api.openai.com/v1/chat/completions'
+      timeout: 30000
     }
   },
   {
-    id: 'anthropic-api',
-    name: 'Anthropic Claude',
-    type: 'remote',
-    status: 'inactive',
-    config: {
-      provider: 'anthropic',
-      apiKey: '',
-      model: 'claude-3-haiku-20240307',
-      endpoint: 'https://api.anthropic.com/v1/messages'
-    }
-  },
-  {
-    id: 'mistral-api',
+    id: 'mistral',
     name: 'Mistral AI',
-    type: 'remote',
     status: 'inactive',
     config: {
-      provider: 'mistral',
+      endpoint: 'https://api.mistral.ai/v1/chat/completions',
+      model: 'mistral-large-latest',
       apiKey: '',
-      model: 'mistral-medium',
-      endpoint: 'https://api.mistral.ai/v1/chat/completions'
+      timeout: 30000
     }
   },
   {
-    id: 'openrouter-api',
-    name: 'OpenRouter',
-    type: 'remote',
+    id: 'groq',
+    name: 'Groq (Mixtral)',
     status: 'inactive',
     config: {
-      provider: 'openrouter',
-      apiKey: '',
-      model: 'mistralai/mistral-7b-instruct',
-      endpoint: 'https://openrouter.ai/api/v1/chat/completions'
-    }
-  },
-  {
-    id: 'groq-api',
-    name: 'Groq',
-    type: 'remote',
-    status: 'inactive',
-    config: {
-      provider: 'groq',
-      apiKey: '',
+      endpoint: 'https://api.groq.com/openai/v1/chat/completions',
       model: 'mixtral-8x7b-32768',
-      endpoint: 'https://api.groq.com/openai/v1/chat/completions'
-    }
-  },
-  {
-    id: 'together-api',
-    name: 'Together AI',
-    type: 'remote',
-    status: 'inactive',
-    config: {
-      provider: 'together',
       apiKey: '',
-      model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
-      endpoint: 'https://api.together.xyz/v1/chat/completions'
-    }
-  },
-  {
-    id: 'huggingface-api',
-    name: 'Hugging Face',
-    type: 'remote',
-    status: 'inactive',
-    config: {
-      provider: 'huggingface',
-      apiKey: '',
-      model: 'microsoft/DialoGPT-large',
-      endpoint: 'https://api-inference.huggingface.co/models/microsoft/DialoGPT-large'
-    }
-  },
-  {
-    id: 'perplexity-api',
-    name: 'Perplexity AI',
-    type: 'remote',
-    status: 'inactive',
-    config: {
-      provider: 'perplexity',
-      apiKey: '',
-      model: 'llama-3.1-sonar-small-128k-online',
-      endpoint: 'https://api.perplexity.ai/chat/completions'
+      timeout: 30000
     }
   }
 ];
@@ -313,7 +90,7 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     {
       id: '1',
       role: 'assistant',
-      content: 'Bonjour ! Je suis le Professeur KEBE, votre assistant IA pédagogique.\n\n🎯 **Prêt à travailler ensemble !**\n\nJe peux vous aider à :\n- Créer des modules de formation\n- Générer des cours complets\n- Concevoir des QCM\n- Structurer vos contenus pédagogiques\n\nComment puis-je vous assister aujourd\'hui ?',
+      content: '👋 **Bonjour ! Je suis le Professeur KEBE**\n\nVotre assistant IA pédagogique spécialisé dans la création de formations.\n\n**Mes capacités :**\n- 📚 Création de modules de formation\n- 🎯 Génération de cours complets\n- 📝 Conception de QCM et évaluations\n- 📄 Export Word et PowerPoint\n\n💡 *Configurez votre moteur IA dans l\'onglet Administration pour commencer.*',
       timestamp: new Date(),
       type: 'text'
     }
@@ -322,7 +99,7 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [isTyping, setIsTyping] = useState(false);
   const [activeEngine, setActiveEngineState] = useState<AIEngine | null>(null);
   const [adminSettings, setAdminSettings] = useState<AdminSettings>(() => {
-    const saved = localStorage.getItem('professeur-kebe-admin');
+    const saved = localStorage.getItem('professeur-kebe-admin-v2');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -330,18 +107,18 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           ...parsed,
           engines: parsed.engines?.length > 0 ? parsed.engines : DEFAULT_ENGINES,
           logs: parsed.logs || [],
-          activeEngine: parsed.activeEngine || 'professeur-kebe-colab'
+          activeEngine: parsed.activeEngine || 'ollama-colab'
         };
       } catch {
         return {
-          activeEngine: 'demo-ai',
+          activeEngine: 'ollama-colab',
           engines: DEFAULT_ENGINES,
           logs: []
         };
       }
     }
     return {
-      activeEngine: 'professeur-kebe-colab',
+      activeEngine: 'ollama-colab',
       engines: DEFAULT_ENGINES,
       logs: []
     };
@@ -359,7 +136,7 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     
     setAdminSettings(prev => ({
       ...prev,
-      logs: [newLog, ...prev.logs].slice(0, 100) // Garder seulement les 100 derniers logs
+      logs: [newLog, ...prev.logs].slice(0, 100)
     }));
   }, []);
 
@@ -369,7 +146,7 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       logs: []
     }));
     addLog('info', 'Logs supprimés');
-  }, []);
+  }, [addLog]);
 
   const sendMessage = useCallback(async (content: string) => {
     const userMessage: ChatMessage = {
@@ -410,7 +187,7 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const errorMessage: ChatMessage = {
         id: Date.now().toString() + '_error',
         role: 'assistant',
-        content: `Erreur: ${error instanceof Error ? error.message : 'Une erreur s\'est produite'}`,
+        content: `❌ **Erreur**: ${error instanceof Error ? error.message : 'Une erreur s\'est produite'}\n\n💡 Vérifiez la configuration du moteur IA dans l'onglet Administration.`,
         timestamp: new Date(),
         type: 'error'
       };
@@ -439,7 +216,6 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     setAdminSettings(prev => ({ ...prev, ...settings }));
   }, []);
 
-  // Fonction pour vérifier la connexion du moteur actif
   const checkConnection = useCallback(async () => {
     if (!activeEngine) {
       setIsConnected(false);
@@ -451,13 +227,13 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       setIsConnected(success);
       
       if (success) {
-        addLog('info', `Connexion vérifiée pour ${activeEngine.name}`, activeEngine.id);
+        addLog('info', `Connexion vérifiée: ${activeEngine.name}`, activeEngine.id);
       } else {
-        addLog('warning', `Connexion échouée pour ${activeEngine.name}`, activeEngine.id);
+        addLog('warning', `Connexion échouée: ${activeEngine.name}`, activeEngine.id);
       }
     } catch (error) {
       setIsConnected(false);
-      addLog('error', `Erreur de connexion pour ${activeEngine.name}`, activeEngine.id);
+      addLog('error', `Erreur connexion: ${activeEngine.name}`, activeEngine.id);
     }
   }, [activeEngine, addLog]);
 
@@ -471,14 +247,12 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const success = await aiService.testEngine(engine);
       
       if (success) {
-        addLog('info', `Test réussi pour ${engine.name}`, engineId);
-        // Si c'est le moteur actif, mettre à jour le statut de connexion
+        addLog('info', `Test réussi: ${engine.name}`, engineId);
         if (activeEngine?.id === engineId) {
           setIsConnected(true);
         }
       } else {
-        addLog('error', `Test échoué pour ${engine.name}`, engineId);
-        // Si c'est le moteur actif, mettre à jour le statut de connexion
+        addLog('error', `Test échoué: ${engine.name}`, engineId);
         if (activeEngine?.id === engineId) {
           setIsConnected(false);
         }
@@ -486,8 +260,7 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       
       return success;
     } catch (error) {
-      addLog('error', `Erreur test ${engine.name}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`, engineId);
-      // Si c'est le moteur actif, mettre à jour le statut de connexion
+      addLog('error', `Erreur test ${engine.name}: ${error instanceof Error ? error.message : 'Erreur'}`, engineId);
       if (activeEngine?.id === engineId) {
         setIsConnected(false);
       }
@@ -498,99 +271,99 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const addEngine = useCallback((engineData: Omit<AIEngine, 'id'>) => {
     const newEngine: AIEngine = {
       ...engineData,
-      id: `engine-${Date.now()}`,
-      status: 'inactive'
+      id: `engine-${Date.now()}`
     };
-    
+
     setAdminSettings(prev => ({
       ...prev,
       engines: [...prev.engines, newEngine]
     }));
-    
-    addLog('info', `Nouveau moteur ajouté: ${newEngine.name}`, newEngine.id);
+
+    addLog('info', `Moteur ajouté: ${newEngine.name}`);
   }, [addLog]);
 
   const removeEngine = useCallback((engineId: string) => {
     const engine = adminSettings.engines.find(e => e.id === engineId);
-    if (!engine) return;
-
+    
     setAdminSettings(prev => ({
       ...prev,
-      engines: prev.engines.filter(e => e.id !== engineId),
-      activeEngine: prev.activeEngine === engineId ? '' : prev.activeEngine
+      engines: prev.engines.filter(e => e.id !== engineId)
     }));
 
-    if (activeEngine?.id === engineId) {
-      setActiveEngineState(null);
-      aiService.setActiveEngine(null as any);
+    if (engine) {
+      addLog('info', `Moteur supprimé: ${engine.name}`);
     }
-
-    addLog('info', `Moteur supprimé: ${engine.name}`, engineId);
-  }, [adminSettings.engines, activeEngine, addLog]);
+  }, [adminSettings.engines, addLog]);
 
   const setActiveEngine = useCallback((engineId: string) => {
     const engine = adminSettings.engines.find(e => e.id === engineId);
-    if (!engine) return;
+    if (engine) {
+      // Mettre à jour tous les statuts
+      setAdminSettings(prev => ({
+        ...prev,
+        activeEngine: engineId,
+        engines: prev.engines.map(e => ({
+          ...e,
+          status: e.id === engineId ? 'active' : 'inactive' as const
+        }))
+      }));
 
-    setActiveEngineState(engine);
-    aiService.setActiveEngine(engine);
-    
-    setAdminSettings(prev => ({
-      ...prev,
-      activeEngine: engineId
-    }));
-
-    addLog('info', `Moteur activé: ${engine.name}`, engineId);
-    
-    // Vérifier la connexion du nouveau moteur actif
-    checkConnection();
+      setActiveEngineState(engine);
+      aiService.setActiveEngine(engine);
+      addLog('info', `Moteur activé: ${engine.name}`, engineId);
+      
+      // Vérifier la connexion
+      setTimeout(() => checkConnection(), 500);
+    }
   }, [adminSettings.engines, addLog, checkConnection]);
 
-  // Sauvegarder les paramètres dans localStorage
+  // Sauvegarder les paramètres
   useEffect(() => {
-    localStorage.setItem('professeur-kebe-admin', JSON.stringify(adminSettings));
+    localStorage.setItem('professeur-kebe-admin-v2', JSON.stringify(adminSettings));
   }, [adminSettings]);
+
+  // Initialiser le moteur actif
+  useEffect(() => {
+    const savedEngineId = adminSettings.activeEngine;
+    const engine = adminSettings.engines.find(e => e.id === savedEngineId);
+    
+    if (engine) {
+      setActiveEngineState(engine);
+      aiService.setActiveEngine(engine);
+    } else if (adminSettings.engines.length > 0) {
+      const firstEngine = adminSettings.engines[0];
+      setActiveEngineState(firstEngine);
+      aiService.setActiveEngine(firstEngine);
+    }
+  }, []);
 
   // Vérifier la connexion périodiquement
   useEffect(() => {
     if (activeEngine) {
       checkConnection();
-      
-      // Vérifier la connexion toutes les 30 secondes
-      const interval = setInterval(checkConnection, 30000);
+      const interval = setInterval(checkConnection, 60000);
       return () => clearInterval(interval);
-    } else {
-      setIsConnected(false);
     }
   }, [activeEngine, checkConnection]);
 
-  // Initialiser le moteur actif au démarrage
-  useEffect(() => {
-    if (adminSettings.activeEngine && !activeEngine) {
-      const engine = adminSettings.engines.find(e => e.id === adminSettings.activeEngine);
-      if (engine) {
-        setActiveEngineState(engine);
-        aiService.setActiveEngine(engine);
-      }
-    }
-  }, [adminSettings.activeEngine, adminSettings.engines, activeEngine]);
-
   return (
-    <AIContext.Provider value={{
-      messages,
-      isTyping,
-      activeEngine,
-      isConnected,
-      adminSettings,
-      sendMessage,
-      clearChat,
-      updateAdminSettings,
-      testEngine,
-      addEngine,
-      removeEngine,
-      setActiveEngine,
-      clearLogs
-    }}>
+    <AIContext.Provider
+      value={{
+        messages,
+        isTyping,
+        activeEngine,
+        isConnected,
+        adminSettings,
+        sendMessage,
+        clearChat,
+        updateAdminSettings,
+        testEngine,
+        addEngine,
+        removeEngine,
+        setActiveEngine,
+        clearLogs
+      }}
+    >
       {children}
     </AIContext.Provider>
   );

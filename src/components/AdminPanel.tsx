@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Plus, Trash2, TestTube, Power, AlertCircle, CheckCircle, Wifi, WifiOff } from 'lucide-react';
+import { Settings, Plus, Trash2, TestTube, Power, AlertCircle, CheckCircle, Wifi, WifiOff, Copy, ExternalLink, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAI } from '@/contexts/AIContext';
 import { useToast } from '@/hooks/use-toast';
@@ -29,30 +28,18 @@ export const AdminPanel: React.FC = () => {
   const [isAddEngineOpen, setIsAddEngineOpen] = useState(false);
   const [newEngine, setNewEngine] = useState({
     name: '',
-    type: 'local' as 'local' | 'remote',
-    model: '',
     endpoint: '',
-    port: '11434',
+    model: '',
     apiKey: '',
-    provider: ''
+    timeout: '60000'
   });
   const { toast } = useToast();
 
   const handleAddEngine = () => {
-    if (!newEngine.name || !newEngine.model || !newEngine.endpoint) {
+    if (!newEngine.name || !newEngine.endpoint || !newEngine.model) {
       toast({
         title: "Champs requis",
-        description: "Veuillez remplir tous les champs obligatoires",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Validation spéciale pour les moteurs distants
-    if (newEngine.type === 'remote' && (!newEngine.apiKey || newEngine.apiKey.trim() === '')) {
-      toast({
-        title: "Clé API requise",
-        description: "Une clé API est obligatoire pour les moteurs distants",
+        description: "Nom, Endpoint et Modèle sont obligatoires",
         variant: "destructive"
       });
       return;
@@ -60,63 +47,44 @@ export const AdminPanel: React.FC = () => {
 
     const engineData: Omit<AIEngine, 'id'> = {
       name: newEngine.name,
-      type: newEngine.type,
       status: 'inactive',
-      config: newEngine.type === 'local' 
-        ? {
-            model: newEngine.model,
-            port: parseInt(newEngine.port),
-            endpoint: newEngine.endpoint
-          }
-        : {
-            provider: newEngine.provider,
-            apiKey: newEngine.apiKey,
-            model: newEngine.model,
-            endpoint: newEngine.endpoint
-          }
+      config: {
+        endpoint: newEngine.endpoint,
+        model: newEngine.model,
+        apiKey: newEngine.apiKey || undefined,
+        timeout: parseInt(newEngine.timeout) || 60000
+      }
     };
 
     addEngine(engineData);
     setIsAddEngineOpen(false);
     setNewEngine({
       name: '',
-      type: 'local',
-      model: '',
       endpoint: '',
-      port: '11434',
+      model: '',
       apiKey: '',
-      provider: ''
+      timeout: '60000'
     });
 
     toast({
       title: "Moteur ajouté",
-      description: `Le moteur ${newEngine.name} a été ajouté avec succès`
+      description: `${newEngine.name} a été ajouté avec succès`
     });
   };
 
   const handleTestEngine = async (engineId: string) => {
     const success = await testEngine(engineId);
     toast({
-      title: success ? "Test réussi" : "Test échoué",
+      title: success ? "Test réussi ✓" : "Test échoué ✗",
       description: success 
         ? "Le moteur répond correctement" 
-        : "Impossible de se connecter au moteur. Vérifiez la configuration et la connectivité.",
+        : "Impossible de se connecter. Vérifiez la configuration.",
       variant: success ? "default" : "destructive"
     });
   };
 
   const handlePromptUpdate = (prompt: string) => {
-    // Ici on pourrait sauvegarder le prompt dans le localStorage ou un service
     localStorage.setItem('coursePrompt', prompt);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'inactive': return 'bg-gray-100 text-gray-800';
-      case 'error': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
   };
 
   const getLogLevelColor = (level: LogEntry['level']) => {
@@ -128,26 +96,65 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copié !" });
+  };
+
   return (
-    <div className="p-6">
+    <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center gap-2 mb-6">
         <Settings className="h-6 w-6 text-primary" />
         <h1 className="text-2xl font-bold">Administration</h1>
       </div>
 
       <Tabs defaultValue="engines" className="space-y-6">
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="engines">Moteurs IA</TabsTrigger>
           <TabsTrigger value="prompts">Prompts</TabsTrigger>
-          <TabsTrigger value="logs">Logs système</TabsTrigger>
-          <TabsTrigger value="settings">Configuration</TabsTrigger>
+          <TabsTrigger value="logs">Logs</TabsTrigger>
+          <TabsTrigger value="help">Aide</TabsTrigger>
         </TabsList>
 
         <TabsContent value="engines" className="space-y-6">
-          <div className="flex items-center justify-between">
+          {/* Statut actuel */}
+          <Card className={isConnected ? "border-green-500/50 bg-green-50/30" : "border-orange-500/50 bg-orange-50/30"}>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {isConnected ? (
+                    <Wifi className="h-5 w-5 text-green-600" />
+                  ) : (
+                    <WifiOff className="h-5 w-5 text-orange-600" />
+                  )}
+                  <div>
+                    <p className="font-medium">
+                      {activeEngine ? activeEngine.name : 'Aucun moteur actif'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {isConnected ? 'Connecté et opérationnel' : 'Non connecté'}
+                    </p>
+                  </div>
+                </div>
+                {activeEngine && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleTestEngine(activeEngine.id)}
+                  >
+                    <TestTube className="h-4 w-4 mr-2" />
+                    Tester
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Actions */}
+          <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-xl font-semibold">Moteurs IA disponibles</h2>
-              <p className="text-muted-foreground">Gérez vos connexions aux différents moteurs d'IA</p>
+              <h2 className="text-xl font-semibold">Moteurs configurés</h2>
+              <p className="text-muted-foreground">Configuration simplifiée : Endpoint + Modèle + Clé API (optionnel)</p>
             </div>
             
             <Dialog open={isAddEngineOpen} onOpenChange={setIsAddEngineOpen}>
@@ -157,118 +164,74 @@ export const AdminPanel: React.FC = () => {
                   Ajouter un moteur
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>Ajouter un nouveau moteur IA</DialogTitle>
+                  <DialogTitle>Nouveau moteur IA</DialogTitle>
                   <DialogDescription>
-                    Configurez un nouveau moteur d'IA local ou distant
+                    Configurez un nouveau moteur avec son API
                   </DialogDescription>
                 </DialogHeader>
                 
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="name">Nom du moteur</Label>
-                      <Input
-                        id="name"
-                        value={newEngine.name}
-                        onChange={(e) => setNewEngine(prev => ({ ...prev, name: e.target.value }))}
-                        placeholder="Mon moteur IA"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="type">Type</Label>
-                      <Select
-                        value={newEngine.type}
-                        onValueChange={(value: 'local' | 'remote') => setNewEngine(prev => ({ ...prev, type: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="local">Local</SelectItem>
-                          <SelectItem value="remote">Distant</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div>
+                    <Label htmlFor="name">Nom du moteur *</Label>
+                    <Input
+                      id="name"
+                      value={newEngine.name}
+                      onChange={(e) => setNewEngine(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Ex: Mon Ollama Colab"
+                    />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="model">Modèle</Label>
-                      <Input
-                        id="model"
-                        value={newEngine.model}
-                        onChange={(e) => setNewEngine(prev => ({ ...prev, model: e.target.value }))}
-                        placeholder="llama3.2, mistral-medium..."
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="endpoint">Point d'accès</Label>
-                      <Input
-                        id="endpoint"
-                        value={newEngine.endpoint}
-                        onChange={(e) => setNewEngine(prev => ({ ...prev, endpoint: e.target.value }))}
-                        placeholder="http://localhost:11434"
-                      />
-                    </div>
+                  <div>
+                    <Label htmlFor="endpoint">Endpoint API *</Label>
+                    <Input
+                      id="endpoint"
+                      value={newEngine.endpoint}
+                      onChange={(e) => setNewEngine(prev => ({ ...prev, endpoint: e.target.value }))}
+                      placeholder="Ex: https://xxxx.ngrok-free.app"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      URL complète du serveur (ngrok, localhost, API cloud...)
+                    </p>
                   </div>
 
-                  {newEngine.type === 'local' ? (
-                    <div>
-                      <Label htmlFor="port">Port</Label>
-                      <Input
-                        id="port"
-                        type="number"
-                        value={newEngine.port}
-                        onChange={(e) => setNewEngine(prev => ({ ...prev, port: e.target.value }))}
-                        placeholder="11434"
-                      />
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="provider">Fournisseur</Label>
-                        <Select
-                          value={newEngine.provider}
-                          onValueChange={(value) => setNewEngine(prev => ({ ...prev, provider: value }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="mistral">Mistral AI</SelectItem>
-                            <SelectItem value="openrouter">OpenRouter</SelectItem>
-                            <SelectItem value="anthropic">Anthropic</SelectItem>
-                            <SelectItem value="huggingface">Hugging Face</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor="apiKey">Clé API *</Label>
-                        <Input
-                          id="apiKey"
-                          type="password"
-                          value={newEngine.apiKey}
-                          onChange={(e) => setNewEngine(prev => ({ ...prev, apiKey: e.target.value }))}
-                          placeholder="sk-... (obligatoire)"
-                        />
-                      </div>
-                    </div>
-                  )}
+                  <div>
+                    <Label htmlFor="model">Modèle *</Label>
+                    <Input
+                      id="model"
+                      value={newEngine.model}
+                      onChange={(e) => setNewEngine(prev => ({ ...prev, model: e.target.value }))}
+                      placeholder="Ex: llama3.2:latest, gpt-4, mistral-large"
+                    />
+                  </div>
 
-                  {newEngine.type === 'remote' && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                      <p className="text-sm text-amber-800">
-                        <strong>Important :</strong> Une clé API valide est requise pour les moteurs distants.
-                        Assurez-vous d'avoir les bonnes permissions pour le modèle sélectionné.
-                      </p>
-                    </div>
-                  )}
+                  <div>
+                    <Label htmlFor="apiKey">Clé API (optionnel)</Label>
+                    <Input
+                      id="apiKey"
+                      type="password"
+                      value={newEngine.apiKey}
+                      onChange={(e) => setNewEngine(prev => ({ ...prev, apiKey: e.target.value }))}
+                      placeholder="sk-... (laisser vide pour Ollama)"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="timeout">Timeout (ms)</Label>
+                    <Input
+                      id="timeout"
+                      type="number"
+                      value={newEngine.timeout}
+                      onChange={(e) => setNewEngine(prev => ({ ...prev, timeout: e.target.value }))}
+                      placeholder="60000"
+                    />
+                  </div>
 
                   <div className="flex gap-2 pt-4">
                     <Button onClick={handleAddEngine} className="flex-1">
-                      Ajouter le moteur
+                      <Zap className="h-4 w-4 mr-2" />
+                      Ajouter
                     </Button>
                     <Button 
                       variant="outline" 
@@ -282,25 +245,24 @@ export const AdminPanel: React.FC = () => {
             </Dialog>
           </div>
 
+          {/* Liste des moteurs */}
           <div className="grid gap-4">
             {adminSettings.engines.map((engine) => (
-              <Card key={engine.id}>
+              <Card key={engine.id} className={activeEngine?.id === engine.id ? "border-primary" : ""}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        {activeEngine?.id === engine.id && isConnected ? (
-                          <Wifi className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <WifiOff className="h-4 w-4 text-gray-400" />
-                        )}
-                        <CardTitle className="text-lg">{engine.name}</CardTitle>
-                      </div>
-                      <Badge className={getStatusColor(engine.status)}>
-                        {engine.status === 'active' && activeEngine?.id === engine.id ? 'Actif' : 'Inactif'}
-                      </Badge>
-                      {engine.type === 'local' && <Badge variant="outline">Local</Badge>}
-                      {engine.type === 'remote' && <Badge variant="outline">Distant</Badge>}
+                      {activeEngine?.id === engine.id && isConnected ? (
+                        <Wifi className="h-4 w-4 text-green-600" />
+                      ) : activeEngine?.id === engine.id ? (
+                        <WifiOff className="h-4 w-4 text-orange-500" />
+                      ) : (
+                        <div className="h-4 w-4" />
+                      )}
+                      <CardTitle className="text-lg">{engine.name}</CardTitle>
+                      {activeEngine?.id === engine.id && (
+                        <Badge className="bg-primary">Actif</Badge>
+                      )}
                     </div>
 
                     <div className="flex gap-2">
@@ -338,12 +300,29 @@ export const AdminPanel: React.FC = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid md:grid-cols-2 gap-4 text-sm">
+                  <div className="grid md:grid-cols-3 gap-4 text-sm">
                     <div>
-                      <span className="font-medium">Modèle:</span> {'config' in engine && 'model' in engine.config ? engine.config.model : 'N/A'}
+                      <span className="font-medium text-muted-foreground">Endpoint:</span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <code className="text-xs bg-muted px-2 py-1 rounded truncate flex-1">
+                          {engine.config.endpoint}
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(engine.config.endpoint)}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                     <div>
-                      <span className="font-medium">Endpoint:</span> {'config' in engine && 'endpoint' in engine.config ? engine.config.endpoint : 'N/A'}
+                      <span className="font-medium text-muted-foreground">Modèle:</span>
+                      <p className="mt-1">{engine.config.model}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-muted-foreground">Clé API:</span>
+                      <p className="mt-1">{engine.config.apiKey ? '••••••••' : 'Non requise'}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -353,33 +332,25 @@ export const AdminPanel: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="prompts" className="space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold mb-2">Configuration des prompts</h2>
-            <p className="text-muted-foreground">Personnalisez les instructions données aux moteurs IA</p>
-          </div>
-
           <PromptSettings onPromptUpdate={handlePromptUpdate} />
         </TabsContent>
 
         <TabsContent value="logs" className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-semibold mb-2">Logs système</h2>
-              <p className="text-muted-foreground">Historique des événements et erreurs</p>
+              <h2 className="text-xl font-semibold">Logs système</h2>
+              <p className="text-muted-foreground">Historique des événements</p>
             </div>
             <Button 
               variant="outline" 
               onClick={() => {
                 clearLogs();
-                toast({
-                  title: "Logs supprimés",
-                  description: "Tous les logs ont été effacés"
-                });
+                toast({ title: "Logs supprimés" });
               }}
               disabled={adminSettings.logs.length === 0}
             >
               <Trash2 className="h-4 w-4 mr-2" />
-              Vider les logs
+              Vider
             </Button>
           </div>
 
@@ -405,13 +376,8 @@ export const AdminPanel: React.FC = () => {
                               {log.level}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              {log.timestamp.toLocaleString()}
+                              {new Date(log.timestamp).toLocaleTimeString('fr-FR')}
                             </span>
-                            {log.engine && (
-                              <Badge variant="outline" className="text-xs">
-                                {adminSettings.engines.find(e => e.id === log.engine)?.name || log.engine}
-                              </Badge>
-                            )}
                           </div>
                           <p className="text-sm">{log.message}</p>
                         </div>
@@ -424,40 +390,58 @@ export const AdminPanel: React.FC = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="settings" className="space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold mb-2">Configuration générale</h2>
-            <p className="text-muted-foreground">Paramètres de l'application</p>
-          </div>
-
+        <TabsContent value="help" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Statut du système</CardTitle>
+              <CardTitle>Guide de configuration</CardTitle>
+              <CardDescription>Comment configurer un moteur IA</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span>Moteur actif</span>
-                <Badge variant={activeEngine ? "default" : "secondary"}>
-                  {activeEngine ? activeEngine.name : 'Aucun'}
-                </Badge>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="bg-muted p-4 rounded-lg">
+                  <h4 className="font-semibold mb-2">🐪 Ollama (Local ou Colab)</h4>
+                  <ul className="text-sm space-y-1">
+                    <li><strong>Endpoint:</strong> http://localhost:11434 (local) ou votre URL ngrok</li>
+                    <li><strong>Modèle:</strong> llama3.2:latest, deepseek-coder:6.7b, mistral:7b...</li>
+                    <li><strong>Clé API:</strong> Non requise</li>
+                  </ul>
+                </div>
+
+                <div className="bg-muted p-4 rounded-lg">
+                  <h4 className="font-semibold mb-2">🤖 OpenAI</h4>
+                  <ul className="text-sm space-y-1">
+                    <li><strong>Endpoint:</strong> https://api.openai.com/v1/chat/completions</li>
+                    <li><strong>Modèle:</strong> gpt-4-turbo-preview, gpt-3.5-turbo</li>
+                    <li><strong>Clé API:</strong> sk-... (requise)</li>
+                  </ul>
+                </div>
+
+                <div className="bg-muted p-4 rounded-lg">
+                  <h4 className="font-semibold mb-2">🌪️ Mistral AI</h4>
+                  <ul className="text-sm space-y-1">
+                    <li><strong>Endpoint:</strong> https://api.mistral.ai/v1/chat/completions</li>
+                    <li><strong>Modèle:</strong> mistral-large-latest, mistral-medium</li>
+                    <li><strong>Clé API:</strong> Requise</li>
+                  </ul>
+                </div>
+
+                <div className="bg-muted p-4 rounded-lg">
+                  <h4 className="font-semibold mb-2">⚡ Groq</h4>
+                  <ul className="text-sm space-y-1">
+                    <li><strong>Endpoint:</strong> https://api.groq.com/openai/v1/chat/completions</li>
+                    <li><strong>Modèle:</strong> mixtral-8x7b-32768, llama2-70b-4096</li>
+                    <li><strong>Clé API:</strong> Requise</li>
+                  </ul>
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span>Connexion</span>
-                <Badge variant={isConnected ? "default" : "destructive"}>
-                  {isConnected ? 'Connecté' : 'Déconnecté'}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Moteurs configurés</span>
-                <Badge variant="outline">
-                  {adminSettings.engines.length}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Logs système</span>
-                <Badge variant="outline">
-                  {adminSettings.logs.length}
-                </Badge>
+
+              <div className="border-t pt-4">
+                <h4 className="font-semibold mb-2">💡 Conseils</h4>
+                <ul className="text-sm space-y-1 text-muted-foreground">
+                  <li>• Pour Colab + ngrok: utilisez le timeout de 60000ms minimum</li>
+                  <li>• Testez toujours la connexion avant utilisation</li>
+                  <li>• Les logs vous aident à diagnostiquer les problèmes</li>
+                </ul>
               </div>
             </CardContent>
           </Card>

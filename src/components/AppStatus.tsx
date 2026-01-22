@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Info, CheckCircle, AlertCircle, XCircle, Wifi, WifiOff, Bot, Database, Zap } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,7 +59,7 @@ export const AppStatus: React.FC = () => {
                   {activeEngine ? activeEngine.name : 'Aucun'}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {activeEngine ? `Type: ${activeEngine.type}` : 'Non configuré'}
+                  {activeEngine ? activeEngine.config.model : 'Non configuré'}
                 </p>
               </div>
               {getStatusIcon(!!activeEngine)}
@@ -188,22 +187,24 @@ export const AppStatus: React.FC = () => {
               <span className="text-sm">{activeEngine?.name || 'Aucun'}</span>
             </div>
             
-            {activeEngine && 'config' in activeEngine && (
+            {activeEngine && (
               <>
                 <div className="flex justify-between">
                   <span className="text-sm font-medium">Modèle:</span>
-                  <span className="text-sm">{'model' in activeEngine.config ? activeEngine.config.model : 'N/A'}</span>
-                </div>
-                
-                <div className="flex justify-between">
-                  <span className="text-sm font-medium">Type:</span>
-                  <span className="text-sm capitalize">{activeEngine.type}</span>
+                  <span className="text-sm">{activeEngine.config.model}</span>
                 </div>
                 
                 <div className="flex justify-between">
                   <span className="text-sm font-medium">Endpoint:</span>
-                  <span className="text-sm text-muted-foreground">
-                    {'endpoint' in activeEngine.config ? activeEngine.config.endpoint : 'N/A'}
+                  <span className="text-sm text-muted-foreground truncate max-w-[200px]">
+                    {activeEngine.config.endpoint}
+                  </span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium">Clé API:</span>
+                  <span className="text-sm">
+                    {activeEngine.config.apiKey ? 'Configurée' : 'Non requise'}
                   </span>
                 </div>
               </>
@@ -236,7 +237,7 @@ export const AppStatus: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium">{log.message}</p>
                       <p className="text-xs text-muted-foreground">
-                        {log.timestamp.toLocaleString()}
+                        {new Date(log.timestamp).toLocaleString('fr-FR')}
                       </p>
                     </div>
                   </div>
@@ -268,7 +269,7 @@ export const AppStatus: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm">{log.message}</p>
                       <p className="text-xs text-muted-foreground">
-                        {log.timestamp.toLocaleString()}
+                        {new Date(log.timestamp).toLocaleString('fr-FR')}
                       </p>
                     </div>
                   </div>

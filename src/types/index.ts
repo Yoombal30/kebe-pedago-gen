@@ -63,31 +63,19 @@ export interface ChatMessage {
   type?: 'text' | 'command' | 'error';
 }
 
+// Configuration unifiée pour tous les moteurs IA
+export interface AIEngineConfig {
+  endpoint: string;
+  model: string;
+  apiKey?: string;
+  timeout?: number;
+}
+
 export interface AIEngine {
   id: string;
   name: string;
-  type: 'local' | 'remote' | 'ollama-colab';
   status: 'active' | 'inactive' | 'error';
-  config: LocalAIConfig | RemoteAIConfig | OllamaColabConfig;
-}
-
-export interface LocalAIConfig {
-  model: string;
-  port: number;
-  endpoint: string;
-}
-
-export interface RemoteAIConfig {
-  provider: string;
-  apiKey: string;
-  model: string;
-  endpoint: string;
-}
-
-export interface OllamaColabConfig {
-  model: string;
-  endpoint: string;
-  port?: number;
+  config: AIEngineConfig;
 }
 
 export interface AdminSettings {
@@ -102,4 +90,24 @@ export interface LogEntry {
   level: 'info' | 'warning' | 'error';
   message: string;
   engine?: string;
+}
+
+// Types pour l'analyse de contenu
+export interface ContentAnalysis {
+  wordCount: number;
+  concepts: string[];
+  suggestedModules: string[];
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  topics: string[];
+}
+
+// Types pour la génération de cours
+export interface GenerationSettings {
+  includeQCM: boolean;
+  includeIntroduction: boolean;
+  includeConclusion: boolean;
+  addExamples: boolean;
+  addWarnings: boolean;
+  qcmQuestionCount: number;
+  courseStyle: 'structured' | 'conversational' | 'technical';
 }
