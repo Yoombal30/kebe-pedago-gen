@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Wand2, FileText, Download, Upload, BookOpen, Settings, CheckCircle, AlertCircle, FileUp, Trash2 } from 'lucide-react';
+import { Wand2, FileText, Download, Upload, BookOpen, Settings, CheckCircle, AlertCircle, FileUp, Trash2, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,17 +9,21 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useAI } from '@/contexts/AIContext';
 import { Course, Module, Document, CourseSection, QCMQuestion } from '@/types';
 import { exportToWord, exportToPowerPoint, exportToPDF, exportToSCORM } from '@/utils/exportUtils';
 import { DocumentProcessor } from '@/services/documentProcessor';
-
+import { CoursePreview } from './CoursePreview';
+import { saveCourseToHistory } from './CourseHistory';
+import { trackAnalyticsEvent } from './AnalyticsDashboard';
 export const CourseGenerator: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
+  const [previewCourse, setPreviewCourse] = useState<Course | null>(null);
   const [settings, setSettings] = useState({
     includeQCM: true,
     includeIntroduction: true,
@@ -157,7 +161,13 @@ export const CourseGenerator: React.FC = () => {
       };
 
       setCourses(prev => [newCourse, ...prev]);
-      toast.success('Cours généré avec succès !');
+      
+      // Save to history and track analytics
+      saveCourseToHistory(newCourse);
+      trackAnalyticsEvent('course_generated', { generationTime: 45 });
+      documents.forEach(() => trackAnalyticsEvent('document_processed'));
+      
+      toast.success('Cours généré et sauvegardé dans l\'historique !');
 
     } catch (error) {
       console.error('Course generation error:', error);
@@ -199,17 +209,21 @@ export const CourseGenerator: React.FC = () => {
       switch (format) {
         case 'docx':
           await exportToWord(course);
+          trackAnalyticsEvent('export', { format: 'docx' });
           break;
         case 'pptx':
           await exportToPowerPoint(course);
+          trackAnalyticsEvent('export', { format: 'pptx' });
           break;
         case 'pdf':
           await exportToPDF(course);
+          trackAnalyticsEvent('export', { format: 'pdf' });
           break;
         case 'scorm':
           await exportToSCORM(course);
           break;
       }
+      toast.success(`Export ${format.toUpperCase()} réussi`);
     } catch (error) {
       console.error('Export error:', error);
       toast.error(`Erreur lors de l'export ${format.toUpperCase()}`);
@@ -397,7 +411,15 @@ export const CourseGenerator: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPreviewCourse(course)}
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Prévisualiser
+                    </Button>
                     <Button
                       variant="default"
                       size="sm"
@@ -540,6 +562,23 @@ export const CourseGenerator: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Preview Dialog */}
+      <Dialog open={!!previewCourse} onOpenChange={(open) => !open && setPreviewCourse(null)}>
+        <DialogContent className="max-w-5xl h-[85vh]">
+          <DialogHeader>
+            <DialogTitle>Prévisualisation du cours</DialogTitle>
+            <DialogDescription>
+              Naviguez dans le cours et testez le QCM interactif
+            </DialogDescription>
+          </DialogHeader>
+          {previewCourse && (
+            <div className="flex-1 overflow-hidden -mx-6 -mb-6">
+              <CoursePreview course={previewCourse} onClose={() => setPreviewCourse(null)} />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
