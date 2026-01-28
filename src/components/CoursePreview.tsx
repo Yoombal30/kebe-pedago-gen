@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Eye, ChevronLeft, ChevronRight, BookOpen, FileText, HelpCircle, List, X } from 'lucide-react';
+import { Eye, ChevronLeft, ChevronRight, BookOpen, FileText, HelpCircle, List, X, Presentation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Course } from '@/types';
 import { cn } from '@/lib/utils';
+import { PresentationMode } from './PresentationMode';
 
 interface CoursePreviewProps {
   course: Course;
@@ -20,6 +21,11 @@ export const CoursePreview: React.FC<CoursePreviewProps> = ({ course, onClose })
   const [showQCM, setShowQCM] = useState(false);
   const [qcmAnswers, setQcmAnswers] = useState<Record<string, number>>({});
   const [showResults, setShowResults] = useState(false);
+  const [showPresentation, setShowPresentation] = useState(false);
+
+  if (showPresentation) {
+    return <PresentationMode course={course} onClose={() => setShowPresentation(false)} />;
+  }
 
   const sections: { id: string; title: string; type: string; index?: number }[] = [
     { id: 'intro', title: 'Introduction', type: 'intro' },
@@ -145,6 +151,16 @@ export const CoursePreview: React.FC<CoursePreviewProps> = ({ course, onClose })
         </div>
         
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPresentation(true)}
+            className="gap-2"
+          >
+            <Presentation className="w-4 h-4" />
+            Présentation
+          </Button>
+          
           {course.content.qcm.length > 0 && (
             <Button
               variant={showQCM ? "default" : "outline"}
