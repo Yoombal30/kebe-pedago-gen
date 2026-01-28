@@ -1,16 +1,20 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { 
-  Maximize2, Minimize2, ChevronLeft, ChevronRight, 
-  Play, Pause, X, Monitor, BookOpen, HelpCircle,
-  Home, Grid3X3
+  Monitor, BookOpen, HelpCircle, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Course } from '@/types';
 import { cn } from '@/lib/utils';
+import { PresentationToolbar, ToolType, ThemeType, TransitionType } from './presentation/PresentationToolbar';
+import { DrawingCanvas } from './presentation/DrawingCanvas';
+import { LaserPointer } from './presentation/LaserPointer';
+import { SpeakerNotes } from './presentation/SpeakerNotes';
+import { ThumbnailSidebar } from './presentation/ThumbnailSidebar';
+import { SlideTransitions } from './presentation/SlideTransitions';
+import { SlideOverview } from './presentation/SlideOverview';
 
 interface PresentationModeProps {
   course: Course;
@@ -24,49 +28,71 @@ interface Slide {
   content: string;
   items?: string[];
   sectionIndex?: number;
+  notes?: string;
 }
 
 export const PresentationMode: React.FC<PresentationModeProps> = ({ course, onClose }) => {
+  // Navigation state
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isAutoPlay, setIsAutoPlay] = useState(false);
-  const [showOverview, setShowOverview] = useState(false);
   const [slideDirection, setSlideDirection] = useState<'next' | 'prev'>('next');
+  const [showOverview, setShowOverview] = useState(false);
+
+  // Display state
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [showThumbnails, setShowThumbnails] = useState(false);
+  const [zoom, setZoom] = useState(1);
+
+  // Tools state
+  const [currentTool, setCurrentTool] = useState<ToolType>('pointer');
+  const [penColor, setPenColor] = useState('#ef4444');
+  const [clearAnnotations, setClearAnnotations] = useState(false);
+
+  // Playback state
+  const [isAutoPlay, setIsAutoPlay] = useState(false);
+  const [autoPlaySpeed, setAutoPlaySpeed] = useState(5);
+  const [isMuted, setIsMuted] = useState(false);
+
+  // Theme state
+  const [theme, setTheme] = useState<ThemeType>('default');
+  const [transition, setTransition] = useState<TransitionType>('fade');
+
+  // Timer
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Generate slides from course content
   const generateSlides = useCallback((): Slide[] => {
     const slides: Slide[] = [];
 
-    // Title slide
     slides.push({
       id: 'title',
       type: 'title',
       title: course.title,
-      content: `${course.modules.length} modules • ${course.content.sections.length} sections`
+      content: `${course.modules.length} modules • ${course.content.sections.length} sections`,
+      notes: 'Bienvenue dans cette présentation. Prenez le temps de vous présenter et d\'expliquer les objectifs de la formation.'
     });
 
-    // Introduction slide
     if (course.content.introduction) {
       slides.push({
         id: 'intro',
         type: 'intro',
         title: 'Introduction',
-        content: course.content.introduction
+        content: course.content.introduction,
+        notes: 'Présentez le contexte et les prérequis nécessaires pour cette formation.'
       });
     }
 
-    // Section slides
     course.content.sections.forEach((section, index) => {
-      // Main section content
       slides.push({
         id: `section-${index}`,
         type: 'section',
         title: section.title,
         content: section.explanation,
-        sectionIndex: index
+        sectionIndex: index,
+        notes: `Section ${index + 1}: Expliquez les concepts clés et assurez-vous que les participants comprennent avant de passer aux exemples.`
       });
 
-      // Examples slide if exists
       if (section.examples.length > 0) {
         slides.push({
           id: `examples-${index}`,
@@ -74,11 +100,11 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ course, onCl
           title: `${section.title} - Exemples`,
           content: '',
           items: section.examples,
-          sectionIndex: index
+          sectionIndex: index,
+          notes: 'Prenez le temps d\'expliquer chaque exemple en détail. Encouragez les questions.'
         });
       }
 
-      // Warnings slide if exists
       if (section.warnings.length > 0) {
         slides.push({
           id: `warnings-${index}`,
@@ -86,30 +112,31 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ course, onCl
           title: `${section.title} - Points d'attention`,
           content: '',
           items: section.warnings,
-          sectionIndex: index
+          sectionIndex: index,
+          notes: 'Ces points sont critiques. Assurez-vous que les participants les notent.'
         });
       }
     });
 
-    // QCM slides
     course.content.qcm.forEach((question, index) => {
       slides.push({
         id: `qcm-${index}`,
         type: 'qcm',
         title: `Question ${index + 1}`,
         content: question.question,
-        items: question.options
+        items: question.options,
+        notes: `La bonne réponse est: ${question.options[question.correctAnswer]}. Explication: ${question.explanation}`
       });
     });
 
-    // Conclusion slide
     if (course.content.conclusion) {
       slides.push({
         id: 'conclusion',
         type: 'conclusion',
         title: 'Conclusion',
         content: course.content.conclusion,
-        items: course.content.resources
+        items: course.content.resources,
+        notes: 'Résumez les points clés et répondez aux dernières questions.'
       });
     }
 
@@ -119,17 +146,34 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ course, onCl
   const slides = generateSlides();
   const totalSlides = slides.length;
   const progress = ((currentSlide + 1) / totalSlides) * 100;
+  const currentSlideData = slides[currentSlide];
 
-  const goToSlide = (index: number) => {
+  // Timer effect
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      setElapsedTime(prev => prev + 1);
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
+
+  // Navigation functions
+  const goToSlide = useCallback((index: number) => {
     setSlideDirection(index > currentSlide ? 'next' : 'prev');
     setCurrentSlide(Math.max(0, Math.min(totalSlides - 1, index)));
     setShowOverview(false);
-  };
+    setClearAnnotations(true);
+  }, [currentSlide, totalSlides]);
 
   const nextSlide = useCallback(() => {
     if (currentSlide < totalSlides - 1) {
       setSlideDirection('next');
       setCurrentSlide(prev => prev + 1);
+      setClearAnnotations(true);
     }
   }, [currentSlide, totalSlides]);
 
@@ -137,28 +181,36 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ course, onCl
     if (currentSlide > 0) {
       setSlideDirection('prev');
       setCurrentSlide(prev => prev - 1);
+      setClearAnnotations(true);
     }
   }, [currentSlide]);
 
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (showOverview) {
+        if (e.key === 'Escape') {
+          setShowOverview(false);
+        }
+        return;
+      }
+
       switch (e.key) {
         case 'ArrowRight':
         case ' ':
         case 'Enter':
+        case 'PageDown':
           e.preventDefault();
           nextSlide();
           break;
         case 'ArrowLeft':
         case 'Backspace':
+        case 'PageUp':
           e.preventDefault();
           prevSlide();
           break;
         case 'Escape':
-          if (showOverview) {
-            setShowOverview(false);
-          } else if (isFullscreen) {
+          if (isFullscreen) {
             document.exitFullscreen();
           } else {
             onClose();
@@ -172,18 +224,60 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ course, onCl
         case 'G':
           setShowOverview(prev => !prev);
           break;
+        case 'n':
+        case 'N':
+          setShowNotes(prev => !prev);
+          break;
+        case 't':
+        case 'T':
+          setShowThumbnails(prev => !prev);
+          break;
+        case 'p':
+        case 'P':
+          setCurrentTool('pointer');
+          break;
+        case 'l':
+        case 'L':
+          setCurrentTool('laser');
+          break;
+        case 'd':
+        case 'D':
+          setCurrentTool('pen');
+          break;
+        case 'h':
+        case 'H':
+          setCurrentTool('highlighter');
+          break;
+        case 'e':
+        case 'E':
+          setCurrentTool('eraser');
+          break;
+        case 'c':
+        case 'C':
+          setClearAnnotations(true);
+          break;
         case 'Home':
           goToSlide(0);
           break;
         case 'End':
           goToSlide(totalSlides - 1);
           break;
+        case '+':
+        case '=':
+          setZoom(prev => Math.min(2, prev + 0.1));
+          break;
+        case '-':
+          setZoom(prev => Math.max(0.5, prev - 0.1));
+          break;
+        case '0':
+          setZoom(1);
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nextSlide, prevSlide, onClose, isFullscreen, showOverview, totalSlides]);
+  }, [nextSlide, prevSlide, onClose, isFullscreen, showOverview, totalSlides, goToSlide]);
 
   // Auto-play
   useEffect(() => {
@@ -195,10 +289,10 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ course, onCl
       } else {
         setIsAutoPlay(false);
       }
-    }, 5000);
+    }, autoPlaySpeed * 1000);
 
     return () => clearInterval(interval);
-  }, [isAutoPlay, currentSlide, totalSlides, nextSlide]);
+  }, [isAutoPlay, currentSlide, totalSlides, nextSlide, autoPlaySpeed]);
 
   // Fullscreen handling
   const toggleFullscreen = async () => {
@@ -223,8 +317,19 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ course, onCl
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  const currentSlideData = slides[currentSlide];
+  // Theme background
+  const getThemeBackground = () => {
+    switch (theme) {
+      case 'dark': return 'bg-slate-900 text-white';
+      case 'corporate': return 'bg-gradient-to-br from-slate-800 to-blue-900 text-white';
+      case 'creative': return 'bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 text-white';
+      case 'minimal': return 'bg-white text-slate-900';
+      case 'gradient': return 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white';
+      default: return 'bg-background text-foreground';
+    }
+  };
 
+  // Render slide content
   const renderSlideContent = () => {
     const slide = currentSlideData;
 
@@ -236,13 +341,13 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ course, onCl
               <Monitor className="w-5 h-5 mr-2" />
               Présentation
             </Badge>
-            <h1 className="text-5xl md:text-7xl font-bold mb-8 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent animate-fade-in">
+            <h1 className="text-5xl md:text-7xl font-bold mb-8 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
               {slide.title}
             </h1>
-            <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl animate-fade-in">
+            <p className="text-xl md:text-2xl opacity-80 max-w-3xl">
               {slide.content}
             </p>
-            <div className="mt-12 flex items-center gap-4 text-sm text-muted-foreground animate-fade-in">
+            <div className="mt-12 flex items-center gap-4 text-sm opacity-60">
               <span>{course.modules.length} modules</span>
               <span>•</span>
               <span>{course.content.sections.length} sections</span>
@@ -259,18 +364,18 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ course, onCl
           <div className="flex flex-col h-full px-12 py-8">
             <div className="flex items-center gap-3 mb-8">
               <div className="w-2 h-12 bg-primary rounded-full" />
-              <h2 className="text-4xl md:text-5xl font-bold animate-fade-in">
+              <h2 className="text-4xl md:text-5xl font-bold">
                 {slide.title}
               </h2>
             </div>
             <div className="flex-1 overflow-auto">
-              <div className="prose prose-lg md:prose-xl dark:prose-invert max-w-none animate-fade-in">
+              <div className="prose prose-lg md:prose-xl dark:prose-invert max-w-none">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {slide.content}
                 </ReactMarkdown>
               </div>
               {slide.type === 'conclusion' && slide.items && slide.items.length > 0 && (
-                <div className="mt-8 p-6 bg-muted/50 rounded-xl animate-fade-in">
+                <div className="mt-8 p-6 bg-black/10 dark:bg-white/10 rounded-xl">
                   <h3 className="font-semibold mb-4 flex items-center gap-2">
                     <BookOpen className="w-5 h-5" />
                     Ressources complémentaires
@@ -294,14 +399,14 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ course, onCl
           <div className="flex flex-col h-full px-12 py-8">
             <div className="flex items-center gap-3 mb-8">
               <BookOpen className="w-10 h-10 text-primary" />
-              <h2 className="text-4xl font-bold animate-fade-in">{slide.title}</h2>
+              <h2 className="text-4xl font-bold">{slide.title}</h2>
             </div>
-            <div className="flex-1 grid gap-4">
+            <div className="flex-1 grid gap-4 content-start">
               {slide.items?.map((example, i) => (
                 <div 
                   key={i}
-                  className="p-6 bg-primary/5 border-l-4 border-primary rounded-r-xl animate-fade-in"
-                  style={{ animationDelay: `${i * 100}ms` }}
+                  className="p-6 bg-primary/10 border-l-4 border-primary rounded-r-xl"
+                  style={{ animationDelay: `${i * 150}ms` }}
                 >
                   <p className="text-lg md:text-xl">{example}</p>
                 </div>
@@ -317,14 +422,14 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ course, onCl
               <div className="w-10 h-10 rounded-full bg-destructive/20 flex items-center justify-center">
                 <span className="text-2xl">⚠️</span>
               </div>
-              <h2 className="text-4xl font-bold animate-fade-in">{slide.title}</h2>
+              <h2 className="text-4xl font-bold">{slide.title}</h2>
             </div>
-            <div className="flex-1 grid gap-4">
+            <div className="flex-1 grid gap-4 content-start">
               {slide.items?.map((warning, i) => (
                 <div 
                   key={i}
-                  className="p-6 bg-destructive/10 border-l-4 border-destructive rounded-r-xl animate-fade-in"
-                  style={{ animationDelay: `${i * 100}ms` }}
+                  className="p-6 bg-destructive/10 border-l-4 border-destructive rounded-r-xl"
+                  style={{ animationDelay: `${i * 150}ms` }}
                 >
                   <p className="text-lg md:text-xl">{warning}</p>
                 </div>
@@ -338,17 +443,17 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ course, onCl
           <div className="flex flex-col h-full px-12 py-8">
             <div className="flex items-center gap-3 mb-8">
               <HelpCircle className="w-10 h-10 text-primary" />
-              <h2 className="text-3xl font-bold animate-fade-in">{slide.title}</h2>
+              <h2 className="text-3xl font-bold">{slide.title}</h2>
             </div>
             <div className="flex-1 flex flex-col justify-center">
-              <p className="text-2xl md:text-3xl font-medium mb-8 animate-fade-in">
+              <p className="text-2xl md:text-3xl font-medium mb-8">
                 {slide.content}
               </p>
               <div className="grid gap-4">
                 {slide.items?.map((option, i) => (
                   <div 
                     key={i}
-                    className="p-5 bg-muted rounded-xl border-2 border-transparent hover:border-primary transition-colors cursor-pointer animate-fade-in"
+                    className="p-5 bg-black/5 dark:bg-white/10 rounded-xl border-2 border-transparent hover:border-primary transition-colors cursor-pointer"
                     style={{ animationDelay: `${i * 100}ms` }}
                   >
                     <span className="font-bold text-primary mr-3">
@@ -367,156 +472,159 @@ export const PresentationMode: React.FC<PresentationModeProps> = ({ course, onCl
     }
   };
 
-  // Overview grid
+  // Show overview
   if (showOverview) {
     return (
-      <div className="fixed inset-0 bg-background z-50 flex flex-col">
-        <div className="border-b p-4 flex items-center justify-between">
-          <h2 className="font-semibold flex items-center gap-2">
-            <Grid3X3 className="w-5 h-5" />
-            Vue d'ensemble - {totalSlides} diapositives
-          </h2>
-          <Button variant="ghost" size="sm" onClick={() => setShowOverview(false)}>
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
-        <div className="flex-1 overflow-auto p-6">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {slides.map((slide, index) => (
-              <button
-                key={slide.id}
-                onClick={() => goToSlide(index)}
-                className={cn(
-                  "aspect-video rounded-lg border-2 p-4 text-left transition-all hover:scale-105",
-                  currentSlide === index 
-                    ? "border-primary bg-primary/10" 
-                    : "border-muted hover:border-primary/50"
-                )}
-              >
-                <Badge variant="outline" className="mb-2 text-xs">
-                  {index + 1}
-                </Badge>
-                <p className="text-sm font-medium line-clamp-2">{slide.title}</p>
-                <p className="text-xs text-muted-foreground mt-1 capitalize">{slide.type}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      <SlideOverview
+        slides={slides}
+        currentSlide={currentSlide}
+        onSelectSlide={goToSlide}
+        onClose={() => setShowOverview(false)}
+      />
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-background z-50 flex flex-col">
-      {/* Top bar */}
-      <div className="absolute top-0 left-0 right-0 z-10 p-4 flex items-center justify-between bg-gradient-to-b from-background via-background/80 to-transparent opacity-0 hover:opacity-100 transition-opacity">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="w-4 h-4 mr-2" />
-            Quitter
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            {currentSlide + 1} / {totalSlides}
-          </span>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => goToSlide(0)}
-            disabled={currentSlide === 0}
-          >
-            <Home className="w-4 h-4" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setShowOverview(true)}
-          >
-            <Grid3X3 className="w-4 h-4" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setIsAutoPlay(!isAutoPlay)}
-          >
-            {isAutoPlay ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-          </Button>
-          <Button variant="ghost" size="sm" onClick={toggleFullscreen}>
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </Button>
-        </div>
-      </div>
+    <div className={cn("fixed inset-0 z-50 flex flex-col", getThemeBackground())}>
+      {/* Toolbar */}
+      <PresentationToolbar
+        currentSlide={currentSlide}
+        totalSlides={totalSlides}
+        isFullscreen={isFullscreen}
+        isAutoPlay={isAutoPlay}
+        autoPlaySpeed={autoPlaySpeed}
+        showNotes={showNotes}
+        showThumbnails={showThumbnails}
+        currentTool={currentTool}
+        penColor={penColor}
+        theme={theme}
+        transition={transition}
+        zoom={zoom}
+        isMuted={isMuted}
+        elapsedTime={elapsedTime}
+        onClose={onClose}
+        onGoToSlide={goToSlide}
+        onToggleFullscreen={toggleFullscreen}
+        onToggleAutoPlay={() => setIsAutoPlay(!isAutoPlay)}
+        onSetAutoPlaySpeed={setAutoPlaySpeed}
+        onToggleNotes={() => setShowNotes(!showNotes)}
+        onToggleThumbnails={() => setShowThumbnails(!showThumbnails)}
+        onSetTool={setCurrentTool}
+        onSetPenColor={setPenColor}
+        onSetTheme={setTheme}
+        onSetTransition={setTransition}
+        onSetZoom={setZoom}
+        onToggleMute={() => setIsMuted(!isMuted)}
+        onShowOverview={() => setShowOverview(true)}
+        onClearAnnotations={() => setClearAnnotations(true)}
+      />
 
       {/* Progress bar */}
       <Progress value={progress} className="h-1 rounded-none" />
 
-      {/* Main content */}
-      <div 
-        className={cn(
-          "flex-1 flex items-stretch overflow-hidden",
-          slideDirection === 'next' ? 'animate-fade-in' : 'animate-fade-in'
-        )}
-        key={currentSlide}
-      >
-        {/* Previous slide button */}
-        <button
-          onClick={prevSlide}
-          disabled={currentSlide === 0}
-          className={cn(
-            "w-20 flex items-center justify-center hover:bg-muted/50 transition-colors",
-            currentSlide === 0 && "opacity-30 cursor-not-allowed"
-          )}
-        >
-          <ChevronLeft className="w-8 h-8" />
-        </button>
+      {/* Main content area */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Thumbnail sidebar */}
+        <ThumbnailSidebar
+          isVisible={showThumbnails}
+          slides={slides}
+          currentSlide={currentSlide}
+          onSelectSlide={goToSlide}
+        />
 
         {/* Slide content */}
-        <div className="flex-1 overflow-hidden">
-          {renderSlideContent()}
-        </div>
-
-        {/* Next slide button */}
-        <button
-          onClick={nextSlide}
-          disabled={currentSlide === totalSlides - 1}
+        <div 
           className={cn(
-            "w-20 flex items-center justify-center hover:bg-muted/50 transition-colors",
-            currentSlide === totalSlides - 1 && "opacity-30 cursor-not-allowed"
+            "flex-1 flex items-stretch overflow-hidden relative",
+            showThumbnails && "ml-48"
           )}
         >
-          <ChevronRight className="w-8 h-8" />
-        </button>
+          {/* Previous slide button */}
+          <button
+            onClick={prevSlide}
+            disabled={currentSlide === 0}
+            className={cn(
+              "w-16 flex items-center justify-center hover:bg-black/10 dark:hover:bg-white/10 transition-colors z-10",
+              currentSlide === 0 && "opacity-30 cursor-not-allowed"
+            )}
+          >
+            <ChevronLeft className="w-8 h-8" />
+          </button>
+
+          {/* Slide with transitions and zoom */}
+          <div 
+            className="flex-1 overflow-hidden relative"
+            style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+          >
+            <SlideTransitions
+              transition={transition}
+              direction={slideDirection}
+              slideKey={currentSlide}
+            >
+              {renderSlideContent()}
+            </SlideTransitions>
+
+            {/* Drawing canvas */}
+            <DrawingCanvas
+              isActive={currentTool === 'pen' || currentTool === 'highlighter' || currentTool === 'eraser'}
+              tool={currentTool}
+              penColor={penColor}
+              onClear={clearAnnotations}
+              onClearComplete={() => setClearAnnotations(false)}
+            />
+          </div>
+
+          {/* Next slide button */}
+          <button
+            onClick={nextSlide}
+            disabled={currentSlide === totalSlides - 1}
+            className={cn(
+              "w-16 flex items-center justify-center hover:bg-black/10 dark:hover:bg-white/10 transition-colors z-10",
+              currentSlide === totalSlides - 1 && "opacity-30 cursor-not-allowed"
+            )}
+          >
+            <ChevronRight className="w-8 h-8" />
+          </button>
+        </div>
+
+        {/* Laser pointer */}
+        <LaserPointer isActive={currentTool === 'laser'} />
       </div>
 
-      {/* Bottom bar with slide indicators */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 p-4 flex items-center justify-center bg-gradient-to-t from-background via-background/80 to-transparent opacity-0 hover:opacity-100 transition-opacity">
-        <div className="flex gap-2 max-w-xl overflow-x-auto py-2">
+      {/* Speaker notes */}
+      <SpeakerNotes
+        isVisible={showNotes}
+        currentSlideTitle={currentSlideData.title}
+        nextSlideTitle={slides[currentSlide + 1]?.title}
+        notes={currentSlideData.notes || ''}
+        onToggle={() => setShowNotes(!showNotes)}
+      />
+
+      {/* Bottom navigation dots */}
+      {!showNotes && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex gap-2 bg-black/20 dark:bg-white/20 rounded-full px-4 py-2 opacity-0 hover:opacity-100 transition-opacity">
           {slides.map((_, index) => (
             <button
               key={index}
               onClick={() => goToSlide(index)}
               className={cn(
-                "w-3 h-3 rounded-full transition-all",
+                "w-2 h-2 rounded-full transition-all",
                 currentSlide === index 
-                  ? "bg-primary scale-125" 
-                  : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
+                  ? "bg-primary scale-150" 
+                  : "bg-white/50 hover:bg-white/80"
               )}
             />
           ))}
         </div>
-      </div>
+      )}
 
-      {/* Keyboard shortcuts help */}
-      <div className="absolute bottom-4 right-4 text-xs text-muted-foreground opacity-0 hover:opacity-100 transition-opacity">
-        <span className="bg-muted px-2 py-1 rounded">←→</span> Navigation
-        <span className="mx-2">|</span>
-        <span className="bg-muted px-2 py-1 rounded">F</span> Plein écran
-        <span className="mx-2">|</span>
-        <span className="bg-muted px-2 py-1 rounded">G</span> Grille
-        <span className="mx-2">|</span>
-        <span className="bg-muted px-2 py-1 rounded">Esc</span> Quitter
+      {/* Keyboard shortcuts hint */}
+      <div className="absolute bottom-4 right-4 text-xs opacity-30 hover:opacity-100 transition-opacity space-x-3">
+        <span className="bg-black/20 px-2 py-1 rounded">F</span>
+        <span className="bg-black/20 px-2 py-1 rounded">L</span>
+        <span className="bg-black/20 px-2 py-1 rounded">D</span>
+        <span className="bg-black/20 px-2 py-1 rounded">N</span>
+        <span className="bg-black/20 px-2 py-1 rounded">G</span>
       </div>
     </div>
   );
