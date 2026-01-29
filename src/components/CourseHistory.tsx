@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { History, Download, Trash2, Eye, Calendar, FileText, Clock, RotateCcw, Search } from 'lucide-react';
+import { History, Download, Trash2, Eye, Calendar, FileText, Clock, RotateCcw, Search, Play, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'sonner';
 import { Course } from '@/types';
 import { CoursePreview } from './CoursePreview';
+import { PresentationMode } from './PresentationMode';
 import { exportToWord, exportToPowerPoint } from '@/utils/exportUtils';
+import { demoCourse } from '@/data/demoCourse';
 
 const STORAGE_KEY = 'professeur-kebe-course-history';
 
@@ -29,6 +31,7 @@ export const CourseHistory: React.FC<CourseHistoryProps> = ({ onRestore }) => {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [previewCourse, setPreviewCourse] = useState<Course | null>(null);
+  const [showDemoPresentation, setShowDemoPresentation] = useState(false);
 
   // Load history from localStorage
   useEffect(() => {
@@ -151,14 +154,37 @@ export const CourseHistory: React.FC<CourseHistoryProps> = ({ onRestore }) => {
         />
       </div>
 
+      {/* Demo Presentation Mode */}
+      {showDemoPresentation && (
+        <PresentationMode
+          course={demoCourse}
+          onClose={() => setShowDemoPresentation(false)}
+        />
+      )}
+
       {/* History list */}
       {filteredHistory.length === 0 ? (
-        <Card>
+        <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <History className="w-12 h-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Aucun cours dans l'historique</h3>
-            <p className="text-muted-foreground text-center">
-              Les cours générés seront automatiquement sauvegardés ici
+            <div className="relative mb-6">
+              <History className="w-16 h-16 text-muted-foreground" />
+              <Sparkles className="w-6 h-6 text-primary absolute -top-1 -right-1" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">Aucun cours dans l'historique</h3>
+            <p className="text-muted-foreground text-center mb-6 max-w-md">
+              Les cours générés seront automatiquement sauvegardés ici.
+              En attendant, découvrez le mode présentation avec notre démo interactive !
+            </p>
+            <Button 
+              onClick={() => setShowDemoPresentation(true)}
+              size="lg"
+              className="gap-2"
+            >
+              <Play className="w-5 h-5" />
+              Lancer la démo présentation
+            </Button>
+            <p className="text-xs text-muted-foreground mt-4">
+              Testez les raccourcis : F=Plein écran, L=Laser, D=Dessin, G=Grille, N=Notes
             </p>
           </CardContent>
         </Card>
