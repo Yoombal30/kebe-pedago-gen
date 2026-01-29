@@ -1,7 +1,8 @@
-import React from 'react';
-import { Bot, BookOpen, Settings, FileText, Zap, Upload, Wand2, HelpCircle, Info, LifeBuoy, History, Layout, BarChart3 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Bot, BookOpen, Settings, FileText, Zap, Upload, Wand2, HelpCircle, Info, LifeBuoy, History, Layout, BarChart3, Play, Sparkles } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { ChatInterface } from '@/components/ChatInterface';
 import { AdminPanel } from '@/components/AdminPanel';
 import { ModuleManager } from '@/components/ModuleManager';
@@ -14,21 +15,33 @@ import { StatusIndicator } from '@/components/StatusIndicator';
 import { CourseHistory } from '@/components/CourseHistory';
 import { CourseTemplates } from '@/components/CourseTemplates';
 import { AnalyticsDashboard } from '@/components/AnalyticsDashboard';
+import { PresentationMode } from '@/components/PresentationMode';
 import { Badge } from '@/components/ui/badge';
+import { demoCourse } from '@/data/demoCourse';
 
-const Dashboard = () => (
+interface DashboardProps {
+  onLaunchDemo: () => void;
+}
+
+const Dashboard: React.FC<DashboardProps> = ({ onLaunchDemo }) => (
   <div className="p-6">
     <div className="mb-8">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="p-3 bg-primary/10 rounded-xl">
-          <Bot className="h-8 w-8 text-primary" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-primary/10 rounded-xl">
+            <Bot className="h-8 w-8 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold">Professeur KEBE</h1>
+            <p className="text-muted-foreground text-lg">
+              Votre assistant IA pédagogique pour la création de contenus de formation
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-3xl font-bold">Professeur KEBE</h1>
-          <p className="text-muted-foreground text-lg">
-            Votre assistant IA pédagogique pour la création de contenus de formation
-          </p>
-        </div>
+        <Button onClick={onLaunchDemo} size="lg" className="gap-2 hidden md:flex">
+          <Play className="w-5 h-5" />
+          Démo Présentation
+        </Button>
       </div>
     </div>
 
@@ -140,6 +153,14 @@ const Dashboard = () => (
                 </p>
               </div>
             </div>
+
+            {/* Demo button for mobile */}
+            <div className="mt-6 md:hidden">
+              <Button onClick={onLaunchDemo} className="w-full gap-2">
+                <Play className="w-5 h-5" />
+                Tester la démo présentation
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -191,8 +212,17 @@ const Dashboard = () => (
 );
 
 const Index = () => {
+  const [showDemoPresentation, setShowDemoPresentation] = useState(false);
+
   return (
     <div className="min-h-screen bg-background">
+      {/* Demo Presentation Mode */}
+      {showDemoPresentation && (
+        <PresentationMode
+          course={demoCourse}
+          onClose={() => setShowDemoPresentation(false)}
+        />
+      )}
       <Tabs defaultValue="dashboard" className="h-screen flex flex-col">
         <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="container">
@@ -260,7 +290,7 @@ const Index = () => {
         
         <div className="flex-1 overflow-auto">
           <TabsContent value="dashboard" className="m-0 h-full">
-            <Dashboard />
+            <Dashboard onLaunchDemo={() => setShowDemoPresentation(true)} />
           </TabsContent>
           
           <TabsContent value="chat" className="m-0 h-full p-6">
