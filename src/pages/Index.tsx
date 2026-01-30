@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, BookOpen, Settings, FileText, Zap, Upload, Wand2, HelpCircle, Info, LifeBuoy, History, Layout, BarChart3, Play, Sparkles } from 'lucide-react';
+import { Bot, BookOpen, Settings, FileText, Zap, Upload, Wand2, HelpCircle, Info, LifeBuoy, History, Layout, BarChart3, Play, Sparkles, CheckCircle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,7 +34,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLaunchDemo }) => (
           <div>
             <h1 className="text-3xl font-bold">Professeur KEBE</h1>
             <p className="text-muted-foreground text-lg">
-              Votre assistant IA pédagogique pour la création de contenus de formation
+              Générateur de cours professionnel - Fonctionne avec ou sans IA
             </p>
           </div>
         </div>
@@ -45,17 +45,31 @@ const Dashboard: React.FC<DashboardProps> = ({ onLaunchDemo }) => (
       </div>
     </div>
 
+    {/* Bannière mode robuste */}
+    <div className="mb-6 p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+      <div className="flex items-start gap-3">
+        <Sparkles className="h-5 w-5 text-green-600 mt-0.5" />
+        <div>
+          <h3 className="font-semibold text-green-800 dark:text-green-200">Mode robuste actif</h3>
+          <p className="text-sm text-green-700 dark:text-green-300">
+            L'application génère des cours complets par analyse structurée des documents.
+            L'IA est un enrichissement optionnel, jamais bloquant.
+          </p>
+        </div>
+      </div>
+    </div>
+
     <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      <Card className="border-l-4 border-l-primary">
+      <Card className="border-l-4 border-l-green-500">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Bot className="h-4 w-4 text-primary" />
-            IA Active
+            <Zap className="h-4 w-4 text-green-600" />
+            Génération
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-primary">Professeur KEBE</div>
-          <p className="text-xs text-muted-foreground">Moteur pédagogique avancé</p>
+          <div className="text-2xl font-bold text-green-600">Sans IA</div>
+          <p className="text-xs text-muted-foreground">Logique 100% déterministe</p>
         </CardContent>
       </Card>
 
@@ -88,13 +102,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onLaunchDemo }) => (
       <Card className="border-l-4 border-l-primary/30">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Zap className="h-4 w-4 text-primary" />
-            Fonctionnalités
+            <Bot className="h-4 w-4 text-primary" />
+            IA
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">12+</div>
-          <p className="text-xs text-muted-foreground">Outils disponibles</p>
+          <div className="text-2xl font-bold">Optionnelle</div>
+          <p className="text-xs text-muted-foreground">Enrichissement non-bloquant</p>
         </CardContent>
       </Card>
     </div>
