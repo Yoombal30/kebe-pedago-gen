@@ -1,307 +1,696 @@
 import pptxgen from 'pptxgenjs';
-import { Course, CourseSection, QCMQuestion } from '@/types';
+import { Course, CourseSection, QCMQuestion, Module } from '@/types';
+
+/**
+ * Service d'export PowerPoint professionnel
+ * 
+ * Principes appliqués :
+ * - 1 slide = 1 idée (pas de surcharge)
+ * - Hiérarchie visuelle claire
+ * - Templates épurés et professionnels
+ * - Numérotation des slides
+ */
+
+export interface PPTXTheme {
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  warningColor: string;
+  backgroundColor: string;
+  textColor: string;
+  lightGray: string;
+}
+
+// Thèmes professionnels prédéfinis
+export const PPTX_THEMES: Record<string, PPTXTheme> = {
+  corporate: {
+    primaryColor: '1e40af', // Bleu corporate
+    secondaryColor: '475569',
+    accentColor: '059669',
+    warningColor: 'd97706',
+    backgroundColor: 'ffffff',
+    textColor: '1f2937',
+    lightGray: 'f3f4f6',
+  },
+  modern: {
+    primaryColor: '7c3aed', // Violet moderne
+    secondaryColor: '64748b',
+    accentColor: '06b6d4',
+    warningColor: 'f59e0b',
+    backgroundColor: 'ffffff',
+    textColor: '1e293b',
+    lightGray: 'f1f5f9',
+  },
+  minimal: {
+    primaryColor: '18181b', // Noir élégant
+    secondaryColor: '71717a',
+    accentColor: '3b82f6',
+    warningColor: 'ef4444',
+    backgroundColor: 'ffffff',
+    textColor: '27272a',
+    lightGray: 'fafafa',
+  },
+};
 
 export class PowerPointExportService {
-  static async exportCourse(course: Course): Promise<void> {
+  private static slideNumber = 0;
+
+  static async exportCourse(course: Course, themeName: keyof typeof PPTX_THEMES = 'corporate'): Promise<void> {
     const pptx = new pptxgen();
+    this.slideNumber = 0;
 
-    // Configuration du thème
+    // Configuration
     pptx.layout = 'LAYOUT_16x9';
-    pptx.defineLayout({ name: 'CUSTOM', width: 10, height: 5.625 });
+    pptx.author = 'Professeur KEBE';
+    pptx.title = course.title;
+    pptx.subject = 'Formation professionnelle';
 
-    // Définir le thème avec des couleurs épurées
-    const theme = {
-      primaryColor: '2563eb', // Bleu professionnel
-      secondaryColor: '475569', // Gris foncé
-      accentColor: '10b981', // Vert moderne
-      backgroundColor: 'ffffff',
-      textColor: '1e293b',
-    };
+    const theme = PPTX_THEMES[themeName];
 
-    // Slide de titre
+    // Structure : 1 slide = 1 idée
+    
+    // 1. Slide de titre
     this.createTitleSlide(pptx, course, theme);
 
-    // Sommaire
+    // 2. Objectifs pédagogiques (1 slide)
+    this.createObjectivesSlide(pptx, course, theme);
+
+    // 3. Sommaire (1 slide)
     this.createSummarySlide(pptx, course, theme);
 
-    // Modules
+    // 4. Introduction (si présente)
+    if (course.content.introduction) {
+      this.createIntroductionSlide(pptx, course.content.introduction, theme);
+    }
+
+    // 5. Modules - chaque module = 1 slide
     course.modules.forEach((module, index) => {
-      const slide = pptx.addSlide();
-      slide.background = { color: theme.backgroundColor };
-
-      slide.addText(`Module ${index + 1}`, {
-        x: 0.5,
-        y: 0.5,
-        w: '90%',
-        h: 0.8,
-        fontSize: 36,
-        color: theme.primaryColor,
-        bold: true,
-      });
-
-      slide.addText(module.title, {
-        x: 0.5,
-        y: 1.4,
-        w: '90%',
-        h: 0.6,
-        fontSize: 28,
-        color: theme.textColor,
-      });
-
-      // Informations du module
-      const moduleInfo = [
-        { label: '⏱️ Durée', value: `${module.duration} heures` },
-        { label: '📚 Connaissances', value: module.knowledge.slice(0, 3).join(', ') },
-        { label: '🎯 Compétences', value: module.skills.slice(0, 3).join(', ') },
-      ];
-
-      let yPos = 2.5;
-      moduleInfo.forEach((info) => {
-        slide.addText(`${info.label}: ${info.value}`, {
-          x: 1,
-          y: yPos,
-          w: 8,
-          h: 0.4,
-          fontSize: 16,
-          color: theme.secondaryColor,
-        });
-        yPos += 0.6;
-      });
+      this.createModuleSlide(pptx, module, index + 1, theme);
     });
 
-    // Sections du cours
+    // 6. Sections du cours - 1 slide par idée principale
     course.content.sections.forEach((section) => {
-      this.createSectionSlide(pptx, section, theme);
+      this.createContentSlides(pptx, section, theme);
     });
 
-    // QCM
+    // 7. QCM - 1 question par slide
     if (course.content.qcm.length > 0) {
+      this.createQCMTitleSlide(pptx, theme);
       this.createQCMSlides(pptx, course.content.qcm, theme);
     }
 
-    // Slide de conclusion
+    // 8. Conclusion
     this.createConclusionSlide(pptx, course, theme);
 
+    // 9. Ressources
+    if (course.content.resources.length > 0) {
+      this.createResourcesSlide(pptx, course.content.resources, theme);
+    }
+
+    // 10. Slide de fin
+    this.createEndSlide(pptx, theme);
+
     // Sauvegarder
-    await pptx.writeFile({ fileName: `${course.title.replace(/[^a-z0-9]/gi, '_')}.pptx` });
+    const filename = course.title
+      .replace(/[^a-z0-9àâäéèêëïîôùûüÿç\s]/gi, '')
+      .replace(/\s+/g, '_')
+      .substring(0, 50);
+    await pptx.writeFile({ fileName: `${filename}.pptx` });
   }
 
-  private static createTitleSlide(pptx: pptxgen, course: Course, theme: any): void {
+  /**
+   * Ajoute un numéro de slide en bas à droite
+   */
+  private static addSlideNumber(slide: pptxgen.Slide, theme: PPTXTheme): void {
+    this.slideNumber++;
+    slide.addText(String(this.slideNumber), {
+      x: 9.3,
+      y: 5.2,
+      w: 0.5,
+      h: 0.3,
+      fontSize: 10,
+      color: theme.secondaryColor,
+      align: 'right',
+    });
+  }
+
+  /**
+   * Ajoute une barre de marque en bas
+   */
+  private static addBrandBar(slide: pptxgen.Slide, theme: PPTXTheme): void {
+    slide.addShape('rect', {
+      x: 0,
+      y: 5.35,
+      w: 10,
+      h: 0.28,
+      fill: { color: theme.primaryColor },
+    });
+  }
+
+  private static createTitleSlide(pptx: pptxgen, course: Course, theme: PPTXTheme): void {
     const slide = pptx.addSlide();
     slide.background = { color: theme.primaryColor };
 
+    // Titre principal centré
     slide.addText(course.title, {
       x: 0.5,
       y: 2,
-      w: '90%',
-      h: 1.5,
-      fontSize: 44,
+      w: 9,
+      h: 1.2,
+      fontSize: 40,
       color: 'ffffff',
       bold: true,
       align: 'center',
+      fontFace: 'Arial',
     });
 
-    slide.addText(`Formation générée le ${new Date(course.generatedAt).toLocaleDateString('fr-FR')}`, {
+    // Sous-titre
+    slide.addText('Formation professionnelle', {
       x: 0.5,
-      y: 4,
-      w: '90%',
+      y: 3.3,
+      w: 9,
+      h: 0.5,
+      fontSize: 20,
+      color: 'ffffff',
+      align: 'center',
+      fontFace: 'Arial',
+    });
+
+    // Date et crédit
+    slide.addText(`${new Date(course.generatedAt).toLocaleDateString('fr-FR')} • Professeur KEBE`, {
+      x: 0.5,
+      y: 5,
+      w: 9,
       h: 0.4,
-      fontSize: 14,
+      fontSize: 12,
       color: 'ffffff',
       align: 'center',
     });
   }
 
-  private static createSummarySlide(pptx: pptxgen, course: Course, theme: any): void {
+  private static createObjectivesSlide(pptx: pptxgen, course: Course, theme: PPTXTheme): void {
+    const slide = pptx.addSlide();
+    slide.background = { color: theme.backgroundColor };
+
+    slide.addText('Objectifs pédagogiques', {
+      x: 0.5,
+      y: 0.4,
+      w: 9,
+      h: 0.7,
+      fontSize: 28,
+      color: theme.primaryColor,
+      bold: true,
+    });
+
+    // Collecter les compétences des modules
+    const skills = [...new Set(course.modules.flatMap(m => m.skills))].slice(0, 5);
+    const objectives = skills.length > 0 
+      ? skills 
+      : ['Maîtriser les concepts clés', 'Appliquer les bonnes pratiques', 'Valider les acquis'];
+
+    objectives.forEach((obj, i) => {
+      slide.addText(`✓ ${obj}`, {
+        x: 1,
+        y: 1.4 + i * 0.7,
+        w: 8,
+        h: 0.6,
+        fontSize: 18,
+        color: theme.textColor,
+      });
+    });
+
+    this.addSlideNumber(slide, theme);
+    this.addBrandBar(slide, theme);
+  }
+
+  private static createSummarySlide(pptx: pptxgen, course: Course, theme: PPTXTheme): void {
     const slide = pptx.addSlide();
     slide.background = { color: theme.backgroundColor };
 
     slide.addText('Sommaire', {
       x: 0.5,
-      y: 0.5,
-      w: '90%',
-      h: 0.8,
-      fontSize: 36,
+      y: 0.4,
+      w: 9,
+      h: 0.7,
+      fontSize: 28,
       color: theme.primaryColor,
       bold: true,
     });
 
-    const items = course.modules.map((m, i) => `${i + 1}. ${m.title}`);
+    const items = course.modules.slice(0, 8).map((m, i) => ({
+      num: i + 1,
+      title: m.title.substring(0, 50),
+      duration: `${m.duration}h`
+    }));
 
-    slide.addText(items.join('\n'), {
-      x: 1,
-      y: 1.5,
-      w: 8,
-      h: 3.5,
-      fontSize: 18,
-      color: theme.textColor,
-      bullet: { type: 'number' },
+    items.forEach((item, i) => {
+      const yPos = 1.3 + i * 0.5;
+      
+      // Numéro
+      slide.addShape('ellipse', {
+        x: 0.8,
+        y: yPos,
+        w: 0.4,
+        h: 0.4,
+        fill: { color: theme.primaryColor },
+      });
+      slide.addText(String(item.num), {
+        x: 0.8,
+        y: yPos,
+        w: 0.4,
+        h: 0.4,
+        fontSize: 12,
+        color: 'ffffff',
+        align: 'center',
+        valign: 'middle',
+      });
+      
+      // Titre
+      slide.addText(item.title, {
+        x: 1.4,
+        y: yPos,
+        w: 6.5,
+        h: 0.4,
+        fontSize: 16,
+        color: theme.textColor,
+      });
+      
+      // Durée
+      slide.addText(item.duration, {
+        x: 8.5,
+        y: yPos,
+        w: 1,
+        h: 0.4,
+        fontSize: 12,
+        color: theme.secondaryColor,
+        align: 'right',
+      });
     });
+
+    this.addSlideNumber(slide, theme);
+    this.addBrandBar(slide, theme);
   }
 
-  private static createSectionSlide(pptx: pptxgen, section: CourseSection, theme: any): void {
+  private static createIntroductionSlide(pptx: pptxgen, introduction: string, theme: PPTXTheme): void {
     const slide = pptx.addSlide();
-    slide.background = { color: theme.backgroundColor };
+    slide.background = { color: theme.lightGray };
 
-    // Titre de la section
-    slide.addText(section.title, {
+    slide.addText('Introduction', {
       x: 0.5,
-      y: 0.5,
-      w: '90%',
-      h: 0.8,
-      fontSize: 32,
+      y: 0.4,
+      w: 9,
+      h: 0.7,
+      fontSize: 28,
       color: theme.primaryColor,
       bold: true,
     });
 
-    // Explication
-    slide.addText(section.explanation, {
+    // Nettoyer le markdown et limiter le texte
+    const cleanText = introduction
+      .replace(/[#*`]/g, '')
+      .replace(/\n{2,}/g, '\n')
+      .substring(0, 600);
+
+    slide.addText(cleanText, {
       x: 0.5,
-      y: 1.5,
-      w: '90%',
-      h: 2,
+      y: 1.3,
+      w: 9,
+      h: 3.5,
       fontSize: 16,
       color: theme.textColor,
       valign: 'top',
     });
 
-    // Exemples (si présents)
-    if (section.examples.length > 0) {
-      const examplesSlide = pptx.addSlide();
-      examplesSlide.background = { color: theme.backgroundColor };
+    this.addSlideNumber(slide, theme);
+    this.addBrandBar(slide, theme);
+  }
 
-      examplesSlide.addText(`${section.title} - Exemples`, {
+  private static createModuleSlide(pptx: pptxgen, module: Module, index: number, theme: PPTXTheme): void {
+    const slide = pptx.addSlide();
+    slide.background = { color: theme.backgroundColor };
+
+    // Header coloré
+    slide.addShape('rect', {
+      x: 0,
+      y: 0,
+      w: 10,
+      h: 1.5,
+      fill: { color: theme.primaryColor },
+    });
+
+    slide.addText(`MODULE ${index}`, {
+      x: 0.5,
+      y: 0.3,
+      w: 9,
+      h: 0.4,
+      fontSize: 14,
+      color: 'ffffff',
+      bold: true,
+    });
+
+    slide.addText(module.title, {
+      x: 0.5,
+      y: 0.7,
+      w: 9,
+      h: 0.6,
+      fontSize: 24,
+      color: 'ffffff',
+      bold: true,
+    });
+
+    // Contenu structuré
+    const sections = [
+      { icon: '⏱️', label: 'Durée', value: `${module.duration} heures` },
+      { icon: '📚', label: 'Connaissances', value: module.knowledge.slice(0, 3).join(' • ') || 'À définir' },
+      { icon: '🎯', label: 'Compétences', value: module.skills.slice(0, 2).join(' • ') || 'À définir' },
+    ];
+
+    let yPos = 1.8;
+    sections.forEach((section) => {
+      slide.addText(`${section.icon} ${section.label}`, {
         x: 0.5,
-        y: 0.5,
-        w: '90%',
-        h: 0.8,
-        fontSize: 28,
+        y: yPos,
+        w: 2,
+        h: 0.4,
+        fontSize: 14,
         color: theme.primaryColor,
         bold: true,
       });
-
-      examplesSlide.addText(section.examples.slice(0, 5).join('\n'), {
-        x: 1,
-        y: 1.5,
-        w: 8,
-        h: 3.5,
+      slide.addText(section.value, {
+        x: 0.5,
+        y: yPos + 0.4,
+        w: 9,
+        h: 0.5,
         fontSize: 16,
         color: theme.textColor,
-        bullet: true,
       });
-    }
+      yPos += 1;
+    });
 
-    // Points d'attention (si présents)
-    if (section.warnings.length > 0) {
-      const warningsSlide = pptx.addSlide();
-      warningsSlide.background = { color: theme.backgroundColor };
+    this.addSlideNumber(slide, theme);
+    this.addBrandBar(slide, theme);
+  }
 
-      warningsSlide.addText(`⚠️ Points d'attention`, {
+  /**
+   * Crée les slides de contenu - 1 slide par idée principale
+   */
+  private static createContentSlides(pptx: pptxgen, section: CourseSection, theme: PPTXTheme): void {
+    // Slide principale du contenu
+    const mainSlide = pptx.addSlide();
+    mainSlide.background = { color: theme.backgroundColor };
+
+    mainSlide.addText(section.title, {
+      x: 0.5,
+      y: 0.4,
+      w: 9,
+      h: 0.7,
+      fontSize: 26,
+      color: theme.primaryColor,
+      bold: true,
+    });
+
+    // Limiter le texte pour respecter "1 slide = 1 idée"
+    const explanation = section.explanation
+      .replace(/[#*`]/g, '')
+      .substring(0, 500);
+
+    mainSlide.addText(explanation, {
+      x: 0.5,
+      y: 1.3,
+      w: 9,
+      h: 3.5,
+      fontSize: 16,
+      color: theme.textColor,
+      valign: 'top',
+    });
+
+    this.addSlideNumber(mainSlide, theme);
+    this.addBrandBar(mainSlide, theme);
+
+    // Slide d'exemples séparée (si nécessaire)
+    if (section.examples.length > 0) {
+      const exampleSlide = pptx.addSlide();
+      exampleSlide.background = { color: theme.lightGray };
+
+      exampleSlide.addText('💡 Exemples', {
         x: 0.5,
-        y: 0.5,
-        w: '90%',
-        h: 0.8,
-        fontSize: 28,
-        color: 'f59e0b',
+        y: 0.4,
+        w: 9,
+        h: 0.7,
+        fontSize: 24,
+        color: theme.accentColor,
         bold: true,
       });
 
-      warningsSlide.addText(section.warnings.join('\n'), {
-        x: 1,
-        y: 1.5,
-        w: 8,
-        h: 3.5,
-        fontSize: 16,
-        color: theme.textColor,
-        bullet: true,
+      section.examples.slice(0, 4).forEach((example, i) => {
+        exampleSlide.addText(`• ${example.substring(0, 100)}`, {
+          x: 1,
+          y: 1.3 + i * 0.9,
+          w: 8,
+          h: 0.8,
+          fontSize: 16,
+          color: theme.textColor,
+        });
       });
+
+      this.addSlideNumber(exampleSlide, theme);
+      this.addBrandBar(exampleSlide, theme);
+    }
+
+    // Slide d'avertissements séparée (si nécessaire)
+    if (section.warnings.length > 0) {
+      const warningSlide = pptx.addSlide();
+      warningSlide.background = { color: theme.backgroundColor };
+
+      // Bande d'alerte
+      warningSlide.addShape('rect', {
+        x: 0,
+        y: 0,
+        w: 10,
+        h: 0.15,
+        fill: { color: theme.warningColor },
+      });
+
+      warningSlide.addText('⚠️ Points d\'attention', {
+        x: 0.5,
+        y: 0.5,
+        w: 9,
+        h: 0.7,
+        fontSize: 24,
+        color: theme.warningColor,
+        bold: true,
+      });
+
+      section.warnings.slice(0, 3).forEach((warning, i) => {
+        warningSlide.addText(`• ${warning.substring(0, 120)}`, {
+          x: 1,
+          y: 1.4 + i * 1,
+          w: 8,
+          h: 0.9,
+          fontSize: 16,
+          color: theme.textColor,
+        });
+      });
+
+      this.addSlideNumber(warningSlide, theme);
+      this.addBrandBar(warningSlide, theme);
     }
   }
 
-  private static createQCMSlides(pptx: pptxgen, questions: QCMQuestion[], theme: any): void {
-    const qcmTitleSlide = pptx.addSlide();
-    qcmTitleSlide.background = { color: theme.accentColor };
+  private static createQCMTitleSlide(pptx: pptxgen, theme: PPTXTheme): void {
+    const slide = pptx.addSlide();
+    slide.background = { color: theme.accentColor };
 
-    qcmTitleSlide.addText('Questionnaire d\'évaluation', {
+    slide.addText('📝', {
+      x: 4.5,
+      y: 1.5,
+      w: 1,
+      h: 1,
+      fontSize: 60,
+      align: 'center',
+    });
+
+    slide.addText('Évaluation des acquis', {
       x: 0.5,
-      y: 2,
-      w: '90%',
-      h: 1.5,
-      fontSize: 40,
+      y: 2.8,
+      w: 9,
+      h: 0.8,
+      fontSize: 36,
       color: 'ffffff',
       bold: true,
       align: 'center',
     });
 
-    questions.forEach((question, index) => {
-      const slide = pptx.addSlide();
-      slide.background = { color: theme.backgroundColor };
-
-      slide.addText(`Question ${index + 1}`, {
-        x: 0.5,
-        y: 0.5,
-        w: '90%',
-        h: 0.6,
-        fontSize: 24,
-        color: theme.primaryColor,
-        bold: true,
-      });
-
-      slide.addText(question.question, {
-        x: 0.5,
-        y: 1.2,
-        w: '90%',
-        h: 1,
-        fontSize: 20,
-        color: theme.textColor,
-      });
-
-      const options = question.options.map((opt, i) => 
-        `${String.fromCharCode(65 + i)}. ${opt}`
-      );
-
-      slide.addText(options.join('\n'), {
-        x: 1,
-        y: 2.5,
-        w: 8,
-        h: 2,
-        fontSize: 16,
-        color: theme.textColor,
-      });
+    slide.addText('Testez vos connaissances', {
+      x: 0.5,
+      y: 3.7,
+      w: 9,
+      h: 0.5,
+      fontSize: 18,
+      color: 'ffffff',
+      align: 'center',
     });
   }
 
-  private static createConclusionSlide(pptx: pptxgen, course: Course, theme: any): void {
+  private static createQCMSlides(pptx: pptxgen, questions: QCMQuestion[], theme: PPTXTheme): void {
+    questions.slice(0, 10).forEach((question, index) => {
+      const slide = pptx.addSlide();
+      slide.background = { color: theme.backgroundColor };
+
+      // Numéro de question
+      slide.addShape('ellipse', {
+        x: 0.5,
+        y: 0.4,
+        w: 0.6,
+        h: 0.6,
+        fill: { color: theme.primaryColor },
+      });
+      slide.addText(String(index + 1), {
+        x: 0.5,
+        y: 0.4,
+        w: 0.6,
+        h: 0.6,
+        fontSize: 18,
+        color: 'ffffff',
+        align: 'center',
+        valign: 'middle',
+        bold: true,
+      });
+
+      // Question
+      slide.addText(question.question, {
+        x: 1.3,
+        y: 0.4,
+        w: 8.2,
+        h: 1,
+        fontSize: 20,
+        color: theme.textColor,
+        bold: true,
+        valign: 'middle',
+      });
+
+      // Options
+      question.options.slice(0, 4).forEach((option, optIndex) => {
+        const letter = String.fromCharCode(65 + optIndex);
+        const yPos = 1.8 + optIndex * 0.8;
+        
+        slide.addShape('rect', {
+          x: 0.8,
+          y: yPos,
+          w: 8.4,
+          h: 0.65,
+          fill: { color: theme.lightGray },
+          line: { color: theme.secondaryColor, width: 0.5 },
+        });
+
+        slide.addText(`${letter}. ${option}`, {
+          x: 1,
+          y: yPos + 0.1,
+          w: 8,
+          h: 0.5,
+          fontSize: 16,
+          color: theme.textColor,
+        });
+      });
+
+      this.addSlideNumber(slide, theme);
+      this.addBrandBar(slide, theme);
+    });
+  }
+
+  private static createConclusionSlide(pptx: pptxgen, course: Course, theme: PPTXTheme): void {
     const slide = pptx.addSlide();
     slide.background = { color: theme.backgroundColor };
 
     slide.addText('Conclusion', {
       x: 0.5,
-      y: 0.5,
-      w: '90%',
-      h: 0.8,
-      fontSize: 36,
+      y: 0.4,
+      w: 9,
+      h: 0.7,
+      fontSize: 28,
       color: theme.primaryColor,
       bold: true,
     });
 
-    slide.addText(course.content.conclusion, {
+    const conclusion = course.content.conclusion
+      .replace(/[#*`]/g, '')
+      .substring(0, 500);
+
+    slide.addText(conclusion, {
       x: 0.5,
-      y: 1.5,
-      w: '90%',
-      h: 2.5,
-      fontSize: 18,
+      y: 1.3,
+      w: 9,
+      h: 3,
+      fontSize: 16,
       color: theme.textColor,
+      valign: 'top',
     });
 
-    slide.addText('Merci de votre attention ! 🎓', {
+    this.addSlideNumber(slide, theme);
+    this.addBrandBar(slide, theme);
+  }
+
+  private static createResourcesSlide(pptx: pptxgen, resources: string[], theme: PPTXTheme): void {
+    const slide = pptx.addSlide();
+    slide.background = { color: theme.lightGray };
+
+    slide.addText('📚 Ressources complémentaires', {
       x: 0.5,
-      y: 4.5,
-      w: '90%',
-      h: 0.5,
+      y: 0.4,
+      w: 9,
+      h: 0.7,
       fontSize: 24,
-      color: theme.accentColor,
+      color: theme.primaryColor,
       bold: true,
+    });
+
+    resources.slice(0, 6).forEach((resource, i) => {
+      slide.addText(`• ${resource}`, {
+        x: 1,
+        y: 1.3 + i * 0.6,
+        w: 8,
+        h: 0.5,
+        fontSize: 16,
+        color: theme.textColor,
+      });
+    });
+
+    this.addSlideNumber(slide, theme);
+    this.addBrandBar(slide, theme);
+  }
+
+  private static createEndSlide(pptx: pptxgen, theme: PPTXTheme): void {
+    const slide = pptx.addSlide();
+    slide.background = { color: theme.primaryColor };
+
+    slide.addText('Merci !', {
+      x: 0.5,
+      y: 2,
+      w: 9,
+      h: 1,
+      fontSize: 48,
+      color: 'ffffff',
+      bold: true,
+      align: 'center',
+    });
+
+    slide.addText('Questions ?', {
+      x: 0.5,
+      y: 3.2,
+      w: 9,
+      h: 0.6,
+      fontSize: 24,
+      color: 'ffffff',
+      align: 'center',
+    });
+
+    slide.addText('Généré par Professeur KEBE', {
+      x: 0.5,
+      y: 5,
+      w: 9,
+      h: 0.4,
+      fontSize: 12,
+      color: 'ffffff',
       align: 'center',
     });
   }

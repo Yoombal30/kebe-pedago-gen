@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Wand2, FileText, Download, Upload, BookOpen, Settings, CheckCircle, AlertCircle, FileUp, Trash2, Eye } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Wand2, FileText, Download, Upload, BookOpen, Settings, CheckCircle, AlertCircle, FileUp, Trash2, Eye, Sparkles, Zap, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,31 +10,48 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { useAI } from '@/contexts/AIContext';
-import { Course, Module, Document, CourseSection, QCMQuestion } from '@/types';
+import { Course, Module, Document, CourseSection, QCMQuestion, GenerationSettings } from '@/types';
 import { exportToWord, exportToPowerPoint, exportToPDF, exportToSCORM } from '@/utils/exportUtils';
 import { DocumentProcessor } from '@/services/documentProcessor';
+import { DeterministicCourseGenerator, GenerationResult } from '@/services/deterministicCourseGenerator';
+import { aiEnhancer } from '@/services/aiEnhancer';
 import { CoursePreview } from './CoursePreview';
 import { saveCourseToHistory } from './CourseHistory';
 import { trackAnalyticsEvent } from './AnalyticsDashboard';
+
 export const CourseGenerator: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [previewCourse, setPreviewCourse] = useState<Course | null>(null);
-  const [settings, setSettings] = useState({
+  const [aiAvailable, setAiAvailable] = useState(false);
+  const [useAIEnhancement, setUseAIEnhancement] = useState(false);
+  const [lastGenerationStats, setLastGenerationStats] = useState<GenerationResult['processingStats'] | null>(null);
+  
+  const [settings, setSettings] = useState<GenerationSettings>({
     includeQCM: true,
     includeIntroduction: true,
     includeConclusion: true,
     addExamples: true,
     addWarnings: true,
     qcmQuestionCount: 10,
-    courseStyle: 'structured' as 'structured' | 'conversational' | 'technical'
+    courseStyle: 'structured'
   });
   const [customInstructions, setCustomInstructions] = useState('');
-  const { sendMessage, activeEngine, isConnected } = useAI();
+  const { activeEngine, isConnected } = useAI();
+
+  // Vérifier la disponibilité de l'IA au chargement
+  useEffect(() => {
+    const checkAI = async () => {
+      const available = await aiEnhancer.checkAvailability();
+      setAiAvailable(available);
+    };
+    checkAI();
+  }, [activeEngine, isConnected]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -74,12 +91,10 @@ export const CourseGenerator: React.FC = () => {
     toast.success('Document supprimé');
   };
 
+  /**
+   * GÉNÉRATION DE COURS - Fonctionne SANS IA par défaut
+   */
   const handleGenerateCourse = async () => {
-    if (!activeEngine || !isConnected) {
-      toast.error("Veuillez configurer et connecter un moteur IA");
-      return;
-    }
-
     if (documents.length === 0) {
       toast.error("Veuillez importer au moins un document");
       return;
@@ -89,85 +104,75 @@ export const CourseGenerator: React.FC = () => {
     setGenerationProgress(0);
 
     try {
-      // Étape 1: Analyse des documents
+      // Étape 1: Analyse des documents (déterministe)
       setGenerationProgress(20);
-      toast.info("Analyse des documents...");
+      toast.info("Analyse structurée des documents...");
       
-      const combinedContent = documents
-        .map(doc => `Document: ${doc.name}\n\n${doc.content}`)
-        .join('\n\n---\n\n');
+      await new Promise(resolve => setTimeout(resolve, 500)); // UX feedback
 
-      const analysis = DocumentProcessor.analyzeContent(combinedContent);
+      // Étape 2: Génération déterministe
+      setGenerationProgress(50);
+      toast.info("Génération du cours...");
 
-      // Étape 2: Préparation du prompt
-      setGenerationProgress(40);
-      toast.info("Préparation du contenu pédagogique...");
-
-      const prompt = DocumentProcessor.prepareAIPrompt(documents, analysis);
-      const fullPrompt = `${prompt}\n\n${customInstructions ? `\nInstructions supplémentaires: ${customInstructions}` : ''}`;
-
-      // Étape 3: Génération avec l'IA
-      setGenerationProgress(60);
-      toast.info("Génération du cours avec l'IA...");
-
-      await sendMessage(fullPrompt);
-
-      // Étape 4: Parse de la réponse (simuler pour l'instant)
-      setGenerationProgress(80);
-      toast.info("Structuration du cours...");
-
-      // Créer une structure par défaut basée sur l'analyse
-      const courseData = createDefaultCourseStructure("Cours généré avec l'IA", analysis);
-
-      // Étape 5: Créer le cours final
-      setGenerationProgress(100);
-      
-      const newCourse: Course = {
-        id: Date.now().toString(),
-        title: courseData.title || `Formation ${documents[0].name}`,
-        modules: courseData.modules?.map((m: any, i: number) => ({
-          id: `module-${i}`,
-          title: m.title,
-          prerequisites: m.prerequisites || [],
-          knowledge: m.knowledge || [],
-          skills: m.skills || [],
-          duration: m.duration || 2,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        })) || [],
+      const result = DeterministicCourseGenerator.generateCourse(
         documents,
-        content: {
-          introduction: courseData.introduction || '',
-          sections: courseData.sections?.map((s: any, i: number) => ({
-            id: `section-${i}`,
-            title: s.title,
-            explanation: s.explanation,
-            examples: s.examples || [],
-            warnings: s.warnings || [],
-            illustrations: s.illustrations || []
-          })) || [],
-          conclusion: courseData.conclusion || '',
-          qcm: courseData.qcm?.map((q: any, i: number) => ({
-            id: `qcm-${i}`,
-            question: q.question,
-            options: q.options,
-            correctAnswer: q.correctAnswer,
-            explanation: q.explanation
-          })) || [],
-          resources: courseData.resources || []
-        },
-        generatedAt: new Date(),
-        lastModified: new Date()
-      };
+        settings,
+        customInstructions
+      );
 
-      setCourses(prev => [newCourse, ...prev]);
+      let finalCourse = result.course;
+
+      // Étape 3: Enrichissement IA (optionnel et non-bloquant)
+      if (useAIEnhancement && aiAvailable) {
+        setGenerationProgress(70);
+        toast.info("Enrichissement avec l'IA...");
+
+        try {
+          // Enrichir les sections (avec timeout)
+          const enhancedSections = await Promise.all(
+            finalCourse.content.sections.slice(0, 5).map(async (section) => {
+              const enhanced = await aiEnhancer.enhanceSection(section);
+              if (enhanced.enhanced) {
+                return { ...section, explanation: enhanced.enhancedContent };
+              }
+              return section;
+            })
+          );
+
+          finalCourse = {
+            ...finalCourse,
+            content: {
+              ...finalCourse.content,
+              sections: [
+                ...enhancedSections,
+                ...finalCourse.content.sections.slice(5)
+              ]
+            }
+          };
+
+          toast.success("Contenu enrichi avec l'IA");
+        } catch (error) {
+          console.warn("Enrichissement IA non disponible:", error);
+          toast.info("Cours généré sans enrichissement IA");
+        }
+      }
+
+      // Étape 4: Finalisation
+      setGenerationProgress(100);
+
+      setCourses(prev => [finalCourse, ...prev]);
+      setLastGenerationStats(result.processingStats);
       
       // Save to history and track analytics
-      saveCourseToHistory(newCourse);
-      trackAnalyticsEvent('course_generated', { generationTime: 45 });
+      saveCourseToHistory(finalCourse);
+      trackAnalyticsEvent('course_generated', { 
+        generationTime: result.processingStats.processingTimeMs,
+        withAI: useAIEnhancement && aiAvailable
+      });
       documents.forEach(() => trackAnalyticsEvent('document_processed'));
       
-      toast.success('Cours généré et sauvegardé dans l\'historique !');
+      const aiLabel = result.generatedWithAI ? 'avec IA' : 'sans IA';
+      toast.success(`Cours généré ${aiLabel} et sauvegardé !`);
 
     } catch (error) {
       console.error('Course generation error:', error);
@@ -176,29 +181,6 @@ export const CourseGenerator: React.FC = () => {
       setIsGenerating(false);
       setGenerationProgress(0);
     }
-  };
-
-  const createDefaultCourseStructure = (aiResponse: string, analysis: any): any => {
-    return {
-      title: `Formation basée sur les documents`,
-      introduction: aiResponse.substring(0, 500),
-      modules: analysis.suggestedModules.map((title: string, i: number) => ({
-        title,
-        duration: 2,
-        prerequisites: [],
-        knowledge: analysis.concepts,
-        skills: [`Compétence ${i + 1}`]
-      })),
-      sections: [{
-        title: 'Contenu principal',
-        explanation: aiResponse,
-        examples: [],
-        warnings: []
-      }],
-      qcm: [],
-      conclusion: 'Formation complète à personnaliser.',
-      resources: []
-    };
   };
 
   const handleExport = async (courseId: string, format: 'pdf' | 'docx' | 'pptx' | 'scorm') => {
@@ -329,9 +311,50 @@ export const CourseGenerator: React.FC = () => {
             </CardContent>
           </Card>
 
+          {/* Option d'enrichissement IA */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sparkles className="w-4 h-4" />
+                Enrichissement IA
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Améliorer avec l'IA</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Reformulation et exemples supplémentaires
+                  </p>
+                </div>
+                <Switch
+                  checked={useAIEnhancement}
+                  onCheckedChange={setUseAIEnhancement}
+                  disabled={!aiAvailable}
+                />
+              </div>
+              
+              <div className={`p-3 rounded-lg text-sm ${aiAvailable ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-muted text-muted-foreground'}`}>
+                <div className="flex items-center gap-2">
+                  {aiAvailable ? (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      <span>IA disponible pour enrichissement</span>
+                    </>
+                  ) : (
+                    <>
+                      <Info className="w-4 h-4" />
+                      <span>IA désactivée - Génération 100% déterministe</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Bouton de génération */}
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="pt-6 space-y-4">
               {isGenerating ? (
                 <div className="space-y-4">
                   <Progress value={generationProgress} />
@@ -342,28 +365,35 @@ export const CourseGenerator: React.FC = () => {
               ) : (
                 <Button
                   onClick={handleGenerateCourse}
-                  disabled={documents.length === 0 || !isConnected}
+                  disabled={documents.length === 0}
                   className="w-full"
                   size="lg"
                 >
                   <Wand2 className="w-5 h-5 mr-2" />
-                  Générer le cours complet
+                  Générer le cours {useAIEnhancement && aiAvailable ? '+ IA' : '(sans IA)'}
                 </Button>
+              )}
+
+              {lastGenerationStats && (
+                <Alert>
+                  <Zap className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    Dernière génération : {lastGenerationStats.sectionsCreated} sections, 
+                    {lastGenerationStats.qcmGenerated} questions QCM en {lastGenerationStats.processingTimeMs}ms
+                  </AlertDescription>
+                </Alert>
               )}
             </CardContent>
           </Card>
 
-          {/* Statut moteur IA */}
-          {!isConnected && (
-            <Card className="border-destructive">
-              <CardContent className="pt-6 flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 text-destructive" />
-                <p className="text-sm">
-                  Moteur IA non connecté. Configurez un moteur dans l'onglet Administration.
-                </p>
-              </CardContent>
-            </Card>
-          )}
+          {/* Info mode sans IA */}
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Mode robuste :</strong> Le cours est généré par analyse structurée des documents.
+              L'IA est optionnelle et sert uniquement à enrichir le contenu.
+            </AlertDescription>
+          </Alert>
         </TabsContent>
 
         {/* Onglet Cours générés */}
