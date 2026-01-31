@@ -3,9 +3,14 @@
  * 
  * Ce service implémente toute la logique métier pour créer des cours structurés
  * à partir de documents importés, sans aucune dépendance à un moteur IA externe.
+ * 
+ * Intègre désormais les 1994 règles de la norme NS 01-001 pour enrichir
+ * automatiquement les formations en sécurité électrique.
  */
 
 import { Course, CourseSection, Module, Document, QCMQuestion, GenerationSettings } from '@/types';
+import { NormRule } from '@/types/norms';
+import { normService } from '@/services/normService';
 
 export interface ParsedDocument {
   title: string;
@@ -39,6 +44,7 @@ export interface GenerationResult {
   course: Course;
   generatedWithAI: boolean;
   warnings: string[];
+  normRulesUsed: number;
   processingStats: {
     documentsProcessed: number;
     sectionsCreated: number;
@@ -267,14 +273,17 @@ export class DeterministicCourseGenerator {
   
   /**
    * GÉNÉRATION DE COURS COMPLÈTE SANS IA
+   * Enrichit automatiquement avec les règles normatives NS 01-001
    */
   static generateCourse(
     documents: Document[],
     settings: GenerationSettings,
-    customInstructions?: string
+    customInstructions?: string,
+    selectedNormRules?: NormRule[]
   ): GenerationResult {
     const startTime = Date.now();
     const warnings: string[] = [];
+    let normRulesUsed = 0;
     
     // Parser tous les documents
     const parsedDocs = documents.map(doc => 
@@ -286,20 +295,46 @@ export class DeterministicCourseGenerator {
     const allConcepts = [...new Set(parsedDocs.flatMap(d => d.concepts))];
     const allKeywords = [...new Set(parsedDocs.flatMap(d => d.keywords))];
     
+    // Enrichissement normatif automatique si le service est chargé
+    let normRules: NormRule[] = selectedNormRules || [];
+    if (normRules.length === 0 && normService.isLoaded()) {
+      // Rechercher automatiquement des règles pertinentes
+      const searchTerms = [...allConcepts, ...allKeywords].slice(0, 5);
+      for (const term of searchTerms) {
+        const results = normService.searchRules(term, 3);
+        normRules.push(...results.map(r => r.rule));
+      }
+      // Dédupliquer
+      normRules = normRules.filter((rule, idx, arr) => 
+        arr.findIndex(r => r.id === rule.id) === idx
+      );
+      normRulesUsed = normRules.length;
+    }
+    
     // Créer les modules
     const modules = this.createModules(parsedDocs, allConcepts);
     
-    // Créer les sections du cours
-    const courseSections = this.createCourseSections(allSections, settings);
+    // Créer les sections du cours (enrichies avec les normes)
+    let courseSections = this.createCourseSections(allSections, settings);
     
-    // Générer le QCM
-    const qcm = settings.includeQCM 
+    // Enrichir avec les règles normatives
+    if (normRules.length > 0) {
+      courseSections = this.enrichSectionsWithNorms(courseSections, normRules);
+    }
+    
+    // Générer le QCM (inclure des questions sur les normes)
+    let qcm = settings.includeQCM 
       ? this.generateQCM(allSections, allConcepts, settings.qcmQuestionCount)
       : [];
     
+    if (normRules.length > 0 && settings.includeQCM) {
+      const normQCM = this.generateNormQCM(normRules, Math.min(5, settings.qcmQuestionCount));
+      qcm = [...qcm.slice(0, settings.qcmQuestionCount - normQCM.length), ...normQCM];
+    }
+    
     // Générer l'introduction
     const introduction = settings.includeIntroduction
-      ? this.generateIntroduction(parsedDocs, allConcepts, allKeywords)
+      ? this.generateIntroduction(parsedDocs, allConcepts, allKeywords, normRules.length)
       : '';
     
     // Générer la conclusion
@@ -308,7 +343,7 @@ export class DeterministicCourseGenerator {
       : '';
     
     // Créer les ressources
-    const resources = this.generateResources(allKeywords, allConcepts);
+    const resources = this.generateResources(allKeywords, allConcepts, normRules);
     
     // Construire le cours
     const course: Course = {
@@ -333,6 +368,7 @@ export class DeterministicCourseGenerator {
       course,
       generatedWithAI: false,
       warnings,
+      normRulesUsed,
       processingStats: {
         documentsProcessed: documents.length,
         sectionsCreated: courseSections.length,
@@ -340,6 +376,73 @@ export class DeterministicCourseGenerator {
         processingTimeMs: processingTime,
       },
     };
+  }
+  
+  /**
+   * Enrichit les sections avec les règles normatives NS 01-001
+   */
+  private static enrichSectionsWithNorms(
+    sections: CourseSection[], 
+    normRules: NormRule[]
+  ): CourseSection[] {
+    return sections.map((section, idx) => {
+      // Trouver des règles pertinentes pour cette section
+      const sectionContent = `${section.title} ${section.explanation}`.toLowerCase();
+      const relevantRules = normRules.filter(rule => 
+        sectionContent.includes(rule.article.toLowerCase()) ||
+        rule.content.toLowerCase().split(' ').some(word => 
+          word.length > 5 && sectionContent.includes(word)
+        )
+      ).slice(0, 2);
+      
+      if (relevantRules.length === 0) return section;
+      
+      // Ajouter les références normatives
+      const normReferences = relevantRules.map(rule => 
+        `📋 Art. ${rule.article} (NS 01-001, p.${rule.page}): ${rule.content.substring(0, 150)}...`
+      );
+      
+      return {
+        ...section,
+        explanation: section.explanation + 
+          '\n\n**Références normatives :**\n' + 
+          normReferences.join('\n\n'),
+        warnings: [
+          ...section.warnings,
+          ...relevantRules
+            .filter(r => r.content.toLowerCase().includes('danger') || r.content.toLowerCase().includes('attention'))
+            .map(r => `⚠️ ${r.content.substring(0, 100)}... (Art. ${r.article})`)
+        ]
+      };
+    });
+  }
+  
+  /**
+   * Génère des questions QCM basées sur les règles normatives
+   */
+  private static generateNormQCM(normRules: NormRule[], count: number): QCMQuestion[] {
+    const questions: QCMQuestion[] = [];
+    const selectedRules = normRules.slice(0, count);
+    
+    selectedRules.forEach((rule, idx) => {
+      // Extraire le concept clé de la règle
+      const content = rule.content.substring(0, 200);
+      
+      questions.push({
+        id: `qcm-norm-${idx}`,
+        question: `Selon l'article ${rule.article} de la norme NS 01-001, quelle affirmation est correcte ?`,
+        options: [
+          content.split('.')[0] + '.',
+          'Cette règle ne s\'applique qu\'aux installations industrielles.',
+          'Cette disposition est optionnelle selon le contexte.',
+          'L\'article mentionné traite d\'un autre sujet.'
+        ],
+        correctAnswer: 0,
+        explanation: `Article ${rule.article} (page ${rule.page}) - ${rule.titre}: "${content}"`,
+      });
+    });
+    
+    return questions;
   }
   
   /**
@@ -577,12 +680,13 @@ export class DeterministicCourseGenerator {
   private static generateIntroduction(
     parsedDocs: ParsedDocument[], 
     concepts: string[], 
-    keywords: string[]
+    keywords: string[],
+    normRulesCount: number = 0
   ): string {
     const mainDoc = parsedDocs[0];
     const totalReadingTime = parsedDocs.reduce((acc, doc) => acc + doc.metadata.estimatedReadingTime, 0);
     
-    return `## Bienvenue dans cette formation
+    let intro = `## Bienvenue dans cette formation
 
 Cette formation professionnelle a été créée à partir de ${parsedDocs.length} document(s) source(s) pour vous permettre d'acquérir les compétences essentielles.
 
@@ -594,7 +698,13 @@ ${concepts.slice(0, 5).map(c => `- Maîtriser les concepts liés à **${c}**`).j
 ### Durée estimée
 
 - **Temps de lecture** : ${totalReadingTime} minutes
-- **Niveau** : ${mainDoc.metadata.difficulty === 'beginner' ? 'Débutant' : mainDoc.metadata.difficulty === 'intermediate' ? 'Intermédiaire' : 'Avancé'}
+- **Niveau** : ${mainDoc.metadata.difficulty === 'beginner' ? 'Débutant' : mainDoc.metadata.difficulty === 'intermediate' ? 'Intermédiaire' : 'Avancé'}`;
+
+    if (normRulesCount > 0) {
+      intro += `\n- **Références normatives** : ${normRulesCount} articles NS 01-001 intégrés`;
+    }
+
+    intro += `
 
 ### Mots-clés
 
@@ -603,6 +713,8 @@ ${keywords.slice(0, 8).map(k => `\`${k}\``).join(' • ')}
 ---
 
 Naviguez dans les sections ci-dessous pour découvrir le contenu de la formation.`;
+
+    return intro;
   }
   
   /**
@@ -637,7 +749,7 @@ Une fois le QCM validé avec un score minimum de 80%, vous pourrez télécharger
   /**
    * Générer les ressources complémentaires
    */
-  private static generateResources(keywords: string[], concepts: string[]): string[] {
+  private static generateResources(keywords: string[], concepts: string[], normRules?: NormRule[]): string[] {
     const resources: string[] = [
       'Documentation technique approfondie',
       'Guide des bonnes pratiques',
@@ -646,6 +758,11 @@ Une fois le QCM validé avec un score minimum de 80%, vous pourrez télécharger
     keywords.slice(0, 3).forEach(keyword => {
       resources.push(`Référentiel ${keyword}`);
     });
+    
+    if (normRules && normRules.length > 0) {
+      resources.push('Norme NS 01-001 - Sécurité des installations électriques');
+      resources.push(`${normRules.length} articles normatifs référencés`);
+    }
     
     resources.push('Support de cours téléchargeable');
     resources.push('FAQ et assistance');
