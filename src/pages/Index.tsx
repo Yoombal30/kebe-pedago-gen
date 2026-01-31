@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, BookOpen, Settings, FileText, Zap, Upload, Wand2, HelpCircle, Info, LifeBuoy, History, Layout, BarChart3, Play, Sparkles, CheckCircle } from 'lucide-react';
+import { Bot, BookOpen, Settings, FileText, Zap, Upload, Wand2, HelpCircle, Info, LifeBuoy, History, Layout, BarChart3, Play, Sparkles, CheckCircle, Database } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,9 +16,9 @@ import { CourseHistory } from '@/components/CourseHistory';
 import { CourseTemplates } from '@/components/CourseTemplates';
 import { AnalyticsDashboard } from '@/components/AnalyticsDashboard';
 import { PresentationMode } from '@/components/PresentationMode';
+import { NormExplorer } from '@/components/NormExplorer';
 import { Badge } from '@/components/ui/badge';
 import { demoCourse } from '@/data/demoCourse';
-
 interface DashboardProps {
   onLaunchDemo: () => void;
 }
@@ -73,16 +73,16 @@ const Dashboard: React.FC<DashboardProps> = ({ onLaunchDemo }) => (
         </CardContent>
       </Card>
 
-      <Card className="border-l-4 border-l-primary/70">
+      <Card className="border-l-4 border-l-blue-500">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <BookOpen className="h-4 w-4 text-primary" />
-            Modules
+            <Database className="h-4 w-4 text-blue-600" />
+            Norme NS 01-001
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">6</div>
-          <p className="text-xs text-muted-foreground">Templates disponibles</p>
+          <div className="text-2xl font-bold text-blue-600">1994</div>
+          <p className="text-xs text-muted-foreground">Règles de sécurité électrique</p>
         </CardContent>
       </Card>
 
@@ -270,6 +270,10 @@ const Index = () => {
                   <HelpCircle className="h-4 w-4" />
                   <span className="hidden sm:inline">QCM</span>
                 </TabsTrigger>
+                <TabsTrigger value="norms" className="flex items-center gap-2">
+                  <Database className="h-4 w-4" />
+                  <span className="hidden sm:inline">Normes</span>
+                </TabsTrigger>
                 <TabsTrigger value="history" className="flex items-center gap-2">
                   <History className="h-4 w-4" />
                   <span className="hidden sm:inline">Historique</span>
@@ -333,6 +337,10 @@ const Index = () => {
           
           <TabsContent value="qcm" className="m-0 h-full">
             <QCMManager />
+          </TabsContent>
+          
+          <TabsContent value="norms" className="m-0 h-full p-6">
+            <NormExplorer />
           </TabsContent>
           
           <TabsContent value="history" className="m-0 h-full">

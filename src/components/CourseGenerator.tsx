@@ -31,6 +31,7 @@ export const CourseGenerator: React.FC = () => {
   const [aiAvailable, setAiAvailable] = useState(false);
   const [useAIEnhancement, setUseAIEnhancement] = useState(false);
   const [lastGenerationStats, setLastGenerationStats] = useState<GenerationResult['processingStats'] | null>(null);
+  const [lastNormRulesUsed, setLastNormRulesUsed] = useState<number>(0);
   
   const [settings, setSettings] = useState<GenerationSettings>({
     includeQCM: true,
@@ -162,17 +163,20 @@ export const CourseGenerator: React.FC = () => {
 
       setCourses(prev => [finalCourse, ...prev]);
       setLastGenerationStats(result.processingStats);
+      setLastNormRulesUsed(result.normRulesUsed);
       
       // Save to history and track analytics
       saveCourseToHistory(finalCourse);
       trackAnalyticsEvent('course_generated', { 
         generationTime: result.processingStats.processingTimeMs,
-        withAI: useAIEnhancement && aiAvailable
+        withAI: useAIEnhancement && aiAvailable,
+        normRulesUsed: result.normRulesUsed
       });
       documents.forEach(() => trackAnalyticsEvent('document_processed'));
       
       const aiLabel = result.generatedWithAI ? 'avec IA' : 'sans IA';
-      toast.success(`Cours généré ${aiLabel} et sauvegardé !`);
+      const normLabel = result.normRulesUsed > 0 ? ` + ${result.normRulesUsed} règles NS 01-001` : '';
+      toast.success(`Cours généré ${aiLabel}${normLabel} et sauvegardé !`);
 
     } catch (error) {
       console.error('Course generation error:', error);
@@ -379,7 +383,7 @@ export const CourseGenerator: React.FC = () => {
                   <Zap className="h-4 w-4" />
                   <AlertDescription className="text-xs">
                     Dernière génération : {lastGenerationStats.sectionsCreated} sections, 
-                    {lastGenerationStats.qcmGenerated} questions QCM en {lastGenerationStats.processingTimeMs}ms
+                    {lastGenerationStats.qcmGenerated} questions QCM{lastNormRulesUsed > 0 ? `, ${lastNormRulesUsed} règles NS 01-001` : ''} en {lastGenerationStats.processingTimeMs}ms
                   </AlertDescription>
                 </Alert>
               )}
