@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, BookOpen, Settings, FileText, Zap, Upload, Wand2, HelpCircle, Info, LifeBuoy, History, Layout, BarChart3, Play, Sparkles, CheckCircle, Database } from 'lucide-react';
+import { Bot, BookOpen, Settings, FileText, Zap, Upload, Wand2, HelpCircle, Info, LifeBuoy, History, Layout, BarChart3, Play, Sparkles, CheckCircle, Database, GraduationCap } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ import { CourseTemplates } from '@/components/CourseTemplates';
 import { AnalyticsDashboard } from '@/components/AnalyticsDashboard';
 import { PresentationMode } from '@/components/PresentationMode';
 import { NormExplorer } from '@/components/NormExplorer';
+import { NormativeCourseGeneratorUI } from '@/components/NormativeCourseGenerator';
 import { Badge } from '@/components/ui/badge';
 import { demoCourse } from '@/data/demoCourse';
 interface DashboardProps {
@@ -46,12 +47,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onLaunchDemo }) => (
     </div>
 
     {/* Bannière mode robuste */}
-    <div className="mb-6 p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+    <div className="mb-6 p-4 bg-primary/10 border border-primary/30 rounded-lg">
       <div className="flex items-start gap-3">
-        <Sparkles className="h-5 w-5 text-green-600 mt-0.5" />
+        <Sparkles className="h-5 w-5 text-primary mt-0.5" />
         <div>
-          <h3 className="font-semibold text-green-800 dark:text-green-200">Mode robuste actif</h3>
-          <p className="text-sm text-green-700 dark:text-green-300">
+          <h3 className="font-semibold text-foreground">Mode robuste actif</h3>
+          <p className="text-sm text-muted-foreground">
             L'application génère des cours complets par analyse structurée des documents.
             L'IA est un enrichissement optionnel, jamais bloquant.
           </p>
@@ -60,28 +61,28 @@ const Dashboard: React.FC<DashboardProps> = ({ onLaunchDemo }) => (
     </div>
 
     <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      <Card className="border-l-4 border-l-green-500">
+      <Card className="border-l-4 border-l-primary">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Zap className="h-4 w-4 text-green-600" />
+            <Zap className="h-4 w-4 text-primary" />
             Génération
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-green-600">Sans IA</div>
+          <div className="text-2xl font-bold text-primary">Sans IA</div>
           <p className="text-xs text-muted-foreground">Logique 100% déterministe</p>
         </CardContent>
       </Card>
 
-      <Card className="border-l-4 border-l-blue-500">
+      <Card className="border-l-4 border-l-secondary">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Database className="h-4 w-4 text-blue-600" />
+            <Database className="h-4 w-4 text-secondary-foreground" />
             Norme NS 01-001
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-blue-600">1994</div>
+          <div className="text-2xl font-bold text-secondary-foreground">1994</div>
           <p className="text-xs text-muted-foreground">Règles de sécurité électrique</p>
         </CardContent>
       </Card>
@@ -270,9 +271,13 @@ const Index = () => {
                   <HelpCircle className="h-4 w-4" />
                   <span className="hidden sm:inline">QCM</span>
                 </TabsTrigger>
+                <TabsTrigger value="norm-generator" className="flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4" />
+                  <span className="hidden sm:inline">Cours Normatif</span>
+                </TabsTrigger>
                 <TabsTrigger value="norms" className="flex items-center gap-2">
                   <Database className="h-4 w-4" />
-                  <span className="hidden sm:inline">Normes</span>
+                  <span className="hidden sm:inline">Explorer</span>
                 </TabsTrigger>
                 <TabsTrigger value="history" className="flex items-center gap-2">
                   <History className="h-4 w-4" />
@@ -337,6 +342,10 @@ const Index = () => {
           
           <TabsContent value="qcm" className="m-0 h-full">
             <QCMManager />
+          </TabsContent>
+          
+          <TabsContent value="norm-generator" className="m-0 h-full p-6">
+            <NormativeCourseGeneratorUI />
           </TabsContent>
           
           <TabsContent value="norms" className="m-0 h-full p-6">
