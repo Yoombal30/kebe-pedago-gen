@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Bot, BookOpen, Settings, FileText, Zap, Upload, Wand2, HelpCircle, Info, LifeBuoy, History, Layout, BarChart3, Play, Sparkles, CheckCircle, Database, GraduationCap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Bot, BookOpen, Settings, FileText, Zap, Upload, Wand2, HelpCircle, Info, LifeBuoy, History, Layout, BarChart3, Play, Sparkles, CheckCircle, Database, GraduationCap, ClipboardCheck } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,8 +18,12 @@ import { AnalyticsDashboard } from '@/components/AnalyticsDashboard';
 import { PresentationMode } from '@/components/PresentationMode';
 import { NormExplorer } from '@/components/NormExplorer';
 import { NormativeCourseGeneratorUI } from '@/components/NormativeCourseGenerator';
+import { InteractiveQCM } from '@/components/InteractiveQCM';
+import { ThemeLanguageSelector } from '@/components/ThemeLanguageSelector';
+import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { Badge } from '@/components/ui/badge';
 import { demoCourse } from '@/data/demoCourse';
+import { useKeyboardShortcuts, APP_SHORTCUTS } from '@/hooks/useKeyboardShortcuts';
 interface DashboardProps {
   onLaunchDemo: () => void;
 }
@@ -228,6 +232,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onLaunchDemo }) => (
 
 const Index = () => {
   const [showDemoPresentation, setShowDemoPresentation] = useState(false);
+  const [showInteractiveQCM, setShowInteractiveQCM] = useState(false);
+
+  // Activer les raccourcis clavier globaux
+  useKeyboardShortcuts(APP_SHORTCUTS);
 
   return (
     <div className="min-h-screen bg-background">
@@ -302,9 +310,11 @@ const Index = () => {
               </TabsList>
               
               <div className="flex items-center gap-3 ml-4">
+                <OfflineIndicator />
+                <ThemeLanguageSelector />
                 <StatusIndicator />
                 <div className="text-sm text-muted-foreground hidden md:block">
-                  <span className="font-semibold">Professeur KEBE</span> v3.0
+                  <span className="font-semibold">Professeur KEBE</span> v4.0
                 </div>
               </div>
             </div>

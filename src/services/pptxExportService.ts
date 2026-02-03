@@ -21,34 +21,61 @@ export interface PPTXTheme {
   lightGray: string;
 }
 
-// Thèmes professionnels prédéfinis
+// Thèmes professionnels prédéfinis - Design épuré
 export const PPTX_THEMES: Record<string, PPTXTheme> = {
   corporate: {
-    primaryColor: '1e40af', // Bleu corporate
-    secondaryColor: '475569',
-    accentColor: '059669',
-    warningColor: 'd97706',
+    primaryColor: '1a365d', // Bleu foncé corporate
+    secondaryColor: '4a5568',
+    accentColor: '2b6cb0',
+    warningColor: 'c05621',
     backgroundColor: 'ffffff',
-    textColor: '1f2937',
-    lightGray: 'f3f4f6',
+    textColor: '2d3748',
+    lightGray: 'f7fafc',
   },
   modern: {
-    primaryColor: '7c3aed', // Violet moderne
-    secondaryColor: '64748b',
-    accentColor: '06b6d4',
-    warningColor: 'f59e0b',
+    primaryColor: '2d3748', // Gris anthracite moderne
+    secondaryColor: '718096',
+    accentColor: '3182ce',
+    warningColor: 'dd6b20',
     backgroundColor: 'ffffff',
-    textColor: '1e293b',
-    lightGray: 'f1f5f9',
+    textColor: '1a202c',
+    lightGray: 'edf2f7',
   },
   minimal: {
-    primaryColor: '18181b', // Noir élégant
-    secondaryColor: '71717a',
-    accentColor: '3b82f6',
-    warningColor: 'ef4444',
+    primaryColor: '000000', // Noir pur minimal
+    secondaryColor: '6b7280',
+    accentColor: '374151',
+    warningColor: 'dc2626',
     backgroundColor: 'ffffff',
-    textColor: '27272a',
-    lightGray: 'fafafa',
+    textColor: '111827',
+    lightGray: 'f9fafb',
+  },
+  elegant: {
+    primaryColor: '1e3a5f', // Bleu marine élégant
+    secondaryColor: '5a7d9a',
+    accentColor: 'c9a227',
+    warningColor: 'b45309',
+    backgroundColor: 'fefefe',
+    textColor: '1e293b',
+    lightGray: 'f8fafc',
+  },
+  nature: {
+    primaryColor: '1e4d2b', // Vert forêt
+    secondaryColor: '4a7c59',
+    accentColor: '2d5a27',
+    warningColor: 'b45309',
+    backgroundColor: 'ffffff',
+    textColor: '1a202c',
+    lightGray: 'f0fff4',
+  },
+  tech: {
+    primaryColor: '0f172a', // Bleu nuit tech
+    secondaryColor: '334155',
+    accentColor: '0ea5e9',
+    warningColor: 'f97316',
+    backgroundColor: 'ffffff',
+    textColor: '0f172a',
+    lightGray: 'f1f5f9',
   },
 };
 
