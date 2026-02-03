@@ -1,6 +1,8 @@
 import { Course } from "@/types";
 import { WordExportService } from "@/services/wordExportService";
 import { PowerPointExportService } from "@/services/pptxExportService";
+import { SCORMExportService } from "@/services/scormExportService";
+import { BookletExportService } from "@/services/bookletExportService";
 import { toast } from "sonner";
 
 export const exportToPDF = async (course: Course) => {
@@ -37,10 +39,44 @@ export const exportToPowerPoint = async (course: Course) => {
 
 export const exportToSCORM = async (course: Course) => {
   try {
-    toast.info("Export SCORM en cours de développement...");
-    console.log("Exporting to SCORM:", course);
+    toast.loading("Génération du package SCORM...");
+    await SCORMExportService.exportCourse(course);
+    toast.success("Package SCORM généré avec succès !");
   } catch (error) {
     toast.error("Erreur lors de l'export SCORM");
     console.error("SCORM export error:", error);
+  }
+};
+
+export const exportTrainerBooklet = async (course: Course) => {
+  try {
+    toast.loading("Génération du livret formateur...");
+    await BookletExportService.exportTrainerBooklet(course);
+    toast.success("Livret formateur généré avec succès !");
+  } catch (error) {
+    toast.error("Erreur lors de l'export du livret formateur");
+    console.error("Trainer booklet export error:", error);
+  }
+};
+
+export const exportLearnerBooklet = async (course: Course) => {
+  try {
+    toast.loading("Génération du livret apprenant...");
+    await BookletExportService.exportLearnerBooklet(course);
+    toast.success("Livret apprenant généré avec succès !");
+  } catch (error) {
+    toast.error("Erreur lors de l'export du livret apprenant");
+    console.error("Learner booklet export error:", error);
+  }
+};
+
+export const exportAuditSheet = async (course: Course) => {
+  try {
+    toast.loading("Génération de la fiche audit...");
+    await BookletExportService.exportAuditSheet(course);
+    toast.success("Fiche audit générée avec succès !");
+  } catch (error) {
+    toast.error("Erreur lors de l'export de la fiche audit");
+    console.error("Audit sheet export error:", error);
   }
 };
