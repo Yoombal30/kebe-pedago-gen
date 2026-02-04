@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { ChatMessage, AIEngine, AdminSettings, LogEntry, AIEngineConfig } from '@/types';
 import { aiService, AIResponse } from '@/services/aiService';
+import { cloudAIService, CloudAIMessage } from '@/services/cloudAIService';
 
 interface AIContextType {
   messages: ChatMessage[];
@@ -28,15 +29,15 @@ export const useAI = () => {
   return context;
 };
 
-// Configuration par défaut simplifiée - uniquement endpoint + model + apiKey optionnel
+// Configuration par défaut avec Lovable Cloud en premier
 const DEFAULT_ENGINES: AIEngine[] = [
   {
-    id: 'ollama-colab',
-    name: 'Ollama Colab (DeepSeek)',
+    id: 'lovable-cloud',
+    name: 'Lovable Cloud (Gemini 3 Flash)',
     status: 'active',
     config: {
-      endpoint: 'https://427fce534125.ngrok-free.app',
-      model: 'deepseek-coder:6.7b',
+      endpoint: 'cloud',
+      model: 'google/gemini-3-flash-preview',
       timeout: 60000
     }
   },
@@ -47,39 +48,6 @@ const DEFAULT_ENGINES: AIEngine[] = [
     config: {
       endpoint: 'http://localhost:11434',
       model: 'llama3.2:latest',
-      timeout: 30000
-    }
-  },
-  {
-    id: 'openai',
-    name: 'OpenAI GPT-4',
-    status: 'inactive',
-    config: {
-      endpoint: 'https://api.openai.com/v1/chat/completions',
-      model: 'gpt-4-turbo-preview',
-      apiKey: '',
-      timeout: 30000
-    }
-  },
-  {
-    id: 'mistral',
-    name: 'Mistral AI',
-    status: 'inactive',
-    config: {
-      endpoint: 'https://api.mistral.ai/v1/chat/completions',
-      model: 'mistral-large-latest',
-      apiKey: '',
-      timeout: 30000
-    }
-  },
-  {
-    id: 'groq',
-    name: 'Groq (Mixtral)',
-    status: 'inactive',
-    config: {
-      endpoint: 'https://api.groq.com/openai/v1/chat/completions',
-      model: 'mixtral-8x7b-32768',
-      apiKey: '',
       timeout: 30000
     }
   }
@@ -167,13 +135,39 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
       addLog('info', `Message envoyé: ${content.substring(0, 50)}...`, activeEngine.id);
       
-      const response: AIResponse = await aiService.sendMessage(content);
+      let responseContent: string;
+      let success: boolean;
+      let errorMessage: string | undefined;
+
+      // Utiliser Cloud AI si endpoint = 'cloud'
+      if (activeEngine.config.endpoint === 'cloud') {
+        // Construire l'historique des messages pour le contexte
+        const conversationHistory: CloudAIMessage[] = messages
+          .slice(-10) // Garder les 10 derniers messages pour le contexte
+          .map(m => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content
+          }));
+
+        cloudAIService.setModel(activeEngine.config.model as any);
+        const cloudResponse = await cloudAIService.sendMessage(content, conversationHistory);
+        
+        success = cloudResponse.success;
+        responseContent = cloudResponse.content;
+        errorMessage = cloudResponse.error;
+      } else {
+        // Utiliser le service AI classique pour les moteurs personnalisés
+        const response: AIResponse = await aiService.sendMessage(content);
+        success = response.success;
+        responseContent = response.content;
+        errorMessage = response.error;
+      }
       
-      if (response.success) {
+      if (success) {
         const assistantMessage: ChatMessage = {
           id: Date.now().toString() + '_ai',
           role: 'assistant',
-          content: response.content,
+          content: responseContent,
           timestamp: new Date(),
           type: 'text'
         };
@@ -181,7 +175,7 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         setMessages(prev => [...prev, assistantMessage]);
         addLog('info', 'Réponse reçue avec succès', activeEngine.id);
       } else {
-        throw new Error(response.error || 'Erreur inconnue');
+        throw new Error(errorMessage || 'Erreur inconnue');
       }
     } catch (error) {
       const errorMessage: ChatMessage = {
@@ -197,7 +191,7 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     } finally {
       setIsTyping(false);
     }
-  }, [activeEngine, addLog]);
+  }, [activeEngine, messages, addLog]);
 
   const clearChat = useCallback(() => {
     setMessages([
@@ -244,7 +238,15 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     addLog('info', `Test du moteur ${engine.name}`, engineId);
     
     try {
-      const success = await aiService.testEngine(engine);
+      let success: boolean;
+
+      // Test spécifique pour Cloud
+      if (engine.config.endpoint === 'cloud') {
+        cloudAIService.setModel(engine.config.model as any);
+        success = await cloudAIService.testConnection();
+      } else {
+        success = await aiService.testEngine(engine);
+      }
       
       if (success) {
         addLog('info', `Test réussi: ${engine.name}`, engineId);
