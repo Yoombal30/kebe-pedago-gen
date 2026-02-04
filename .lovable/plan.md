@@ -1,12 +1,17 @@
 
-# Plan d'amélioration robuste v5.0 - Professeur KEBE
+# Plan d'amélioration robuste v5.1 - Professeur KEBE
 
 ## ✅ Fonctionnalités déjà implémentées
 
 | Catégorie | Fonctionnalité | Statut |
 |-----------|---------------|--------|
+| **Cloud AI** | Lovable Cloud intégré | ✅ |
+| **Cloud AI** | Modèles GPT-5, Gemini Pro | ✅ |
+| **Cloud AI** | Configuration simplifiée | ✅ |
 | Mode Robuste | Génération 100% déterministe | ✅ |
 | Mode Robuste | Fonctionnement sans IA | ✅ |
+| Moteurs IA | Multi-moteurs (Ollama, OpenAI, Mistral) | ✅ |
+| Moteurs IA | Config unifiée endpoint/model/apiKey | ✅ |
 | Hors-ligne | Service Worker + Cache | ✅ |
 | Hors-ligne | Indicateur de connectivité | ✅ |
 | Normes | NS 01-001 intégrée | ✅ |
@@ -32,6 +37,7 @@
 | Présentation | Cours de démo intégré | ✅ |
 
 ---
+
 
 ## 🚀 Plan d'amélioration Phase 5
 
@@ -174,7 +180,9 @@
 
 ## Notes techniques
 
-- Architecture 100% frontend (pas de backend requis)
-- Tout stockage en localStorage/IndexedDB
+- **Lovable Cloud AI** : Backend géré automatiquement, clé API préconfigurée
+- Architecture hybride Cloud + Mode robuste (100% frontend en fallback)
+- Tout stockage local en localStorage/IndexedDB
 - Exports générés côté client uniquement
 - Compatible PWA pour installation mobile
+- Edge Functions pour communication IA sécurisée

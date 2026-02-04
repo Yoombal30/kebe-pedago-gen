@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Plus, Trash2, TestTube, Power, AlertCircle, CheckCircle, Wifi, WifiOff, Copy, ExternalLink, Zap } from 'lucide-react';
+import { Settings, Plus, Trash2, TestTube, Power, AlertCircle, CheckCircle, Wifi, WifiOff, Copy, Cloud, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,10 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAI } from '@/contexts/AIContext';
 import { useToast } from '@/hooks/use-toast';
 import { AIEngine, LogEntry } from '@/types';
 import { PromptSettings } from './PromptSettings';
+import { CLOUD_AI_MODELS, CloudAIModel } from '@/services/cloudAIService';
 
 export const AdminPanel: React.FC = () => {
   const { 
@@ -22,10 +24,12 @@ export const AdminPanel: React.FC = () => {
     addEngine, 
     removeEngine, 
     setActiveEngine,
-    clearLogs
+    clearLogs,
+    updateAdminSettings
   } = useAI();
   
   const [isAddEngineOpen, setIsAddEngineOpen] = useState(false);
+  const [cloudModel, setCloudModel] = useState<CloudAIModel>('google/gemini-3-flash-preview');
   const [newEngine, setNewEngine] = useState({
     name: '',
     endpoint: '',
@@ -83,6 +87,39 @@ export const AdminPanel: React.FC = () => {
     });
   };
 
+  const handleActivateCloud = () => {
+    // Trouver ou créer le moteur Cloud
+    const existingCloud = adminSettings.engines.find(e => e.config.endpoint === 'cloud');
+    const modelName = CLOUD_AI_MODELS.find(m => m.id === cloudModel)?.name || cloudModel;
+    
+    if (existingCloud) {
+      // Mettre à jour le modèle du moteur cloud existant
+      const updatedEngines = adminSettings.engines.map(e => 
+        e.config.endpoint === 'cloud' 
+          ? { ...e, name: `Lovable Cloud (${modelName})`, config: { ...e.config, model: cloudModel } }
+          : e
+      );
+      updateAdminSettings({ engines: updatedEngines });
+      setActiveEngine(existingCloud.id);
+    } else {
+      // Créer le moteur Cloud
+      addEngine({
+        name: `Lovable Cloud (${modelName})`,
+        status: 'active',
+        config: {
+          endpoint: 'cloud',
+          model: cloudModel,
+          timeout: 60000
+        }
+      });
+    }
+    
+    toast({
+      title: '☁️ Lovable Cloud activé',
+      description: `Modèle: ${modelName}`
+    });
+  };
+
   const handlePromptUpdate = (prompt: string) => {
     localStorage.setItem('coursePrompt', prompt);
   };
@@ -101,6 +138,9 @@ export const AdminPanel: React.FC = () => {
     toast({ title: "Copié !" });
   };
 
+  const isCloudActive = activeEngine?.config.endpoint === 'cloud';
+  const customEngines = adminSettings.engines.filter(e => e.config.endpoint !== 'cloud');
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center gap-2 mb-6">
@@ -117,8 +157,76 @@ export const AdminPanel: React.FC = () => {
         </TabsList>
 
         <TabsContent value="engines" className="space-y-6">
+          {/* Lovable Cloud - Section prioritaire */}
+          <Card className="border-2 border-primary/30 bg-gradient-to-r from-blue-50/50 to-purple-50/50 dark:from-blue-950/20 dark:to-purple-950/20">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-full">
+                    <Cloud className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      Lovable Cloud AI
+                      <Badge variant="secondary" className="text-xs">Recommandé</Badge>
+                    </CardTitle>
+                    <CardDescription>
+                      GPT-5, Gemini Pro - Aucune configuration requise
+                    </CardDescription>
+                  </div>
+                </div>
+                {isCloudActive && (
+                  <Badge className="bg-green-500/20 text-green-700 dark:text-green-400">
+                    <CheckCircle className="w-3 h-3 mr-1" /> Actif
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+                <div className="flex-1 w-full">
+                  <Label>Modèle IA</Label>
+                  <Select value={cloudModel} onValueChange={(v) => setCloudModel(v as CloudAIModel)}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Choisir un modèle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CLOUD_AI_MODELS.map((model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                          <div className="flex flex-col items-start">
+                            <span className="font-medium">{model.name}</span>
+                            <span className="text-xs text-muted-foreground">{model.description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button 
+                  onClick={handleActivateCloud}
+                  variant={isCloudActive ? "secondary" : "default"}
+                  className="w-full sm:w-auto"
+                >
+                  {isCloudActive ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Actif
+                    </>
+                  ) : (
+                    <>
+                      <Cloud className="w-4 h-4 mr-2" />
+                      Activer Cloud
+                    </>
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">
+                💡 Aucune clé API requise. Modèles premium disponibles instantanément.
+              </p>
+            </CardContent>
+          </Card>
           {/* Statut actuel */}
-          <Card className={isConnected ? "border-green-500/50 bg-green-50/30" : "border-orange-500/50 bg-orange-50/30"}>
+          <Card className={isConnected ? "border-green-500/50 bg-green-50/30 dark:bg-green-950/20" : "border-orange-500/50 bg-orange-50/30 dark:bg-orange-950/20"}>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -150,16 +258,16 @@ export const AdminPanel: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Actions */}
+          {/* Moteurs personnalisés */}
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-xl font-semibold">Moteurs configurés</h2>
-              <p className="text-muted-foreground">Configuration simplifiée : Endpoint + Modèle + Clé API (optionnel)</p>
+              <h2 className="text-xl font-semibold">Moteurs personnalisés</h2>
+              <p className="text-muted-foreground">Ollama, OpenAI, Mistral, Groq...</p>
             </div>
             
             <Dialog open={isAddEngineOpen} onOpenChange={setIsAddEngineOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button variant="outline">
                   <Plus className="h-4 w-4 mr-2" />
                   Ajouter un moteur
                 </Button>
@@ -245,9 +353,17 @@ export const AdminPanel: React.FC = () => {
             </Dialog>
           </div>
 
-          {/* Liste des moteurs */}
+          {/* Liste des moteurs personnalisés uniquement */}
           <div className="grid gap-4">
-            {adminSettings.engines.map((engine) => (
+            {customEngines.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="pt-6 text-center text-muted-foreground">
+                  <p>Aucun moteur personnalisé configuré.</p>
+                  <p className="text-sm">Utilisez Lovable Cloud ou ajoutez un moteur personnalisé.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              customEngines.map((engine) => (
               <Card key={engine.id} className={activeEngine?.id === engine.id ? "border-primary" : ""}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -327,7 +443,8 @@ export const AdminPanel: React.FC = () => {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              ))
+            )}
           </div>
         </TabsContent>
 
