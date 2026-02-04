@@ -1,112 +1,180 @@
 
-# Plan : Ajouter un cours de démonstration pour tester le mode présentation
+# Plan d'amélioration robuste v5.0 - Professeur KEBE
 
-## Analyse du problème
+## ✅ Fonctionnalités déjà implémentées
 
-Lors de mes tests, j'ai identifié que le mode présentation ne peut pas être testé actuellement car :
-1. Aucun moteur IA n'est connecté (requis pour la génération)
-2. Aucun cours n'existe dans l'historique
-3. Le bouton "Présentation" n'apparaît que dans le composant `CoursePreview` qui nécessite un cours existant
-
-## Solution proposée
-
-Ajouter un **cours de démonstration intégré** qui permet de tester toutes les fonctionnalités du mode présentation sans configuration préalable.
-
-### Fonctionnalités à tester
-
-Le mode présentation inclut déjà :
-- Navigation par clavier (F=Plein écran, L=Laser, D=Dessin, G=Grille, N=Notes)
-- 6 thèmes visuels (Corporate, Creative, Minimal, etc.)
-- 6 transitions (fade, slide, zoom, flip, cube)
-- Outils d'annotation (stylo, surligneur, gomme)
-- Pointeur laser virtuel avec traînée
-- Notes du présentateur
-- Barre latérale de miniatures
-- Grille de navigation avec recherche
-- Mode lecture automatique
-
----
-
-## Implementation
-
-### Etape 1 : Creer un composant DemoCourse
-
-Creer un nouveau fichier `src/data/demoCourse.ts` contenant un cours de demonstration complet avec :
-- Introduction
-- 3-4 sections avec exemples et avertissements
-- Questions QCM
-- Conclusion et ressources
-
-### Etape 2 : Ajouter un bouton "Demo" dans l'interface
-
-Modifier `src/pages/Index.tsx` pour ajouter un bouton permettant de charger le cours de demo directement dans le mode presentation.
-
-### Etape 3 : Modifier CourseHistory pour proposer la demo
-
-Ajouter une option "Charger un cours de demo" quand l'historique est vide.
+| Catégorie | Fonctionnalité | Statut |
+|-----------|---------------|--------|
+| Mode Robuste | Génération 100% déterministe | ✅ |
+| Mode Robuste | Fonctionnement sans IA | ✅ |
+| Hors-ligne | Service Worker + Cache | ✅ |
+| Hors-ligne | Indicateur de connectivité | ✅ |
+| Normes | NS 01-001 intégrée | ✅ |
+| Normes | Explorateur hiérarchique | ✅ |
+| Normes | 8 thèmes prédéfinis | ✅ |
+| Cours | Structure 5 parties obligatoire | ✅ |
+| Cours | Explications 3 niveaux | ✅ |
+| QCM | 10 questions automatiques | ✅ |
+| QCM | Timer + Scoring | ✅ |
+| QCM | Justifications normatives | ✅ |
+| Export | Word, PowerPoint, PDF | ✅ |
+| Export | SCORM 1.2 | ✅ |
+| Export | Livrets Formateur/Apprenant | ✅ |
+| Export | Fiche Audit Terrain | ✅ |
+| UX | Mode sombre | ✅ |
+| UX | Multi-langue (FR/EN/AR) | ✅ |
+| UX | Raccourcis clavier | ✅ |
+| UX | Sauvegarde automatique | ✅ |
+| Présentation | 6 thèmes visuels | ✅ |
+| Présentation | 6 transitions | ✅ |
+| Présentation | Outils annotation | ✅ |
+| Présentation | Pointeur laser | ✅ |
+| Présentation | Cours de démo intégré | ✅ |
 
 ---
 
-## Details techniques
+## 🚀 Plan d'amélioration Phase 5
 
-### Structure du cours de demo
+### 1️⃣ EXTENSION NORMATIVE (Priorité haute)
 
-```typescript
-const demoCourse: Course = {
-  id: 'demo-course',
-  title: 'Formation Demo - Decouverte du Mode Presentation',
-  modules: [
-    { id: 'mod1', title: 'Introduction au mode presentation', ... },
-    { id: 'mod2', title: 'Outils interactifs', ... },
-    { id: 'mod3', title: 'Themes et transitions', ... }
-  ],
-  content: {
-    introduction: 'Bienvenue dans cette demonstration...',
-    sections: [
-      {
-        title: 'Navigation et raccourcis clavier',
-        explanation: 'Utilisez les fleches...',
-        examples: ['Fleches: navigation', 'F: plein ecran', 'G: grille'],
-        warnings: ['Echap pour quitter le plein ecran']
-      },
-      // ... autres sections
-    ],
-    qcm: [
-      {
-        question: 'Quel raccourci active le laser ?',
-        options: ['L', 'P', 'D', 'F'],
-        correctAnswer: 0,
-        explanation: 'La touche L active le pointeur laser'
-      }
-    ],
-    conclusion: 'Vous maitrisez maintenant...',
-    resources: ['Documentation complete', 'Raccourcis clavier']
-  }
-}
-```
+#### 1.1 Import multi-normes
+- Support NF C 15-100 (installations BT)
+- Support IEC 60364 (international)
+- Support NF C 13-200 (postes HTA)
+- Interface d'import JSON générique
 
-### Modifications de l'interface
+#### 1.2 Versioning des normes
+- Gestion des versions (ex: NS 01-001 v1994, v2020)
+- Comparaison entre versions
+- Mise en évidence des modifications
 
-1. **Page principale** : Ajouter un bouton "Tester la demo" visible dans l'onglet Modeles ou Generateur
-2. **Historique vide** : Proposer de charger la demo au lieu d'afficher seulement un message vide
-3. **Acces direct** : Possibilite de lancer la presentation directement sans passer par la preview
+#### 1.3 Mappings inter-normes
+- Correspondances NS ↔ NF ↔ IEC
+- Tableau de concordance automatique
 
 ---
 
-## Fichiers a modifier
+### 2️⃣ ÉVALUATION AVANCÉE (Priorité haute)
 
-| Fichier | Modification |
-|---------|-------------|
-| `src/data/demoCourse.ts` | Nouveau fichier avec le cours de demo |
-| `src/pages/Index.tsx` | Ajouter bouton "Demo presentation" |
-| `src/components/CourseHistory.tsx` | Option de charger la demo si vide |
-| `src/components/CourseGenerator.tsx` | Bouton demo dans l'onglet cours vide |
+#### 2.1 Banque de questions persistante
+- Stockage local des questions générées
+- Catégorisation par norme/thème/difficulté
+- Réutilisation dans plusieurs cours
+
+#### 2.2 Modes d'évaluation
+- Mode examen (temps limité, pas de retour arrière)
+- Mode entraînement (corrections immédiates)
+- Mode révision (questions ratées uniquement)
+
+#### 2.3 Statistiques apprenants
+- Tableau de bord de progression
+- Graphiques de performance par thème
+- Export des résultats (CSV, PDF)
 
 ---
 
-## Avantages
+### 3️⃣ GÉNÉRATION ENRICHIE (Priorité moyenne)
 
-- Test immediat des fonctionnalites sans configuration
-- Demonstration des capacites du systeme aux utilisateurs
-- Documentation interactive des raccourcis clavier
-- Aucune dependance au moteur IA pour les tests
+#### 3.1 Schémas automatiques
+- Génération SVG de schémas électriques
+- Schémas TT, TN-S, TN-C, IT
+- Diagrammes de protection DDR
+
+#### 3.2 Calculs intégrés
+- Calculateur de section de câble
+- Vérification des seuils de déclenchement
+- Formules interactives
+
+#### 3.3 Animations pédagogiques
+- Animations CSS des phénomènes électriques
+- Visualisation du défaut d'isolement
+- Simulation du fonctionnement DDR
+
+---
+
+### 4️⃣ COLLABORATION (Priorité moyenne)
+
+#### 4.1 Partage de cours
+- Export/Import de cours complets (JSON)
+- QR Code de partage
+- Lien public en lecture seule
+
+#### 4.2 Mode formateur
+- Tableau de bord multi-apprenants
+- Attribution de cours
+- Suivi de progression groupé
+
+#### 4.3 Annotations collaboratives
+- Commentaires sur les slides
+- Suggestions de modifications
+- Historique des contributions
+
+---
+
+### 5️⃣ ACCESSIBILITÉ & PERFORMANCE (Priorité continue)
+
+#### 5.1 Accessibilité WCAG 2.1
+- Navigation clavier complète
+- Lecteur d'écran compatible
+- Contraste élevé optionnel
+- Sous-titres pour animations
+
+#### 5.2 Performance
+- Lazy loading des composants
+- Compression des exports
+- Cache intelligent des normes
+
+#### 5.3 PWA complète
+- Installation sur mobile/desktop
+- Notifications de mises à jour
+- Synchronisation en arrière-plan
+
+---
+
+### 6️⃣ INTÉGRATIONS EXTERNES (Priorité basse)
+
+#### 6.1 LMS avancés
+- Export SCORM 2004
+- Export xAPI (TinCan)
+- Intégration Moodle directe
+
+#### 6.2 Cloud sync (optionnel)
+- Synchronisation Supabase/Firebase
+- Backup automatique cloud
+- Multi-devices
+
+#### 6.3 API externe
+- API REST pour intégration tiers
+- Webhooks d'événements
+- SDK JavaScript
+
+---
+
+## 📋 Roadmap suggérée
+
+| Phase | Fonctionnalités | Durée estimée |
+|-------|-----------------|---------------|
+| 5.1 | Import multi-normes + Banque QCM | 2-3 sessions |
+| 5.2 | Schémas automatiques SVG | 2 sessions |
+| 5.3 | Statistiques apprenants | 1-2 sessions |
+| 5.4 | Export SCORM 2004 / xAPI | 1 session |
+| 5.5 | PWA complète + installation | 1 session |
+
+---
+
+## 🎯 Quick wins immédiats
+
+1. **Impression optimisée** - CSS @media print pour les cours
+2. **Export JSON cours** - Backup/restore complet
+3. **Mode présentation PiP** - Picture-in-Picture pour formateurs
+4. **Chronomètre global** - Timer de session de formation
+5. **Badges de complétion** - Gamification légère
+
+---
+
+## Notes techniques
+
+- Architecture 100% frontend (pas de backend requis)
+- Tout stockage en localStorage/IndexedDB
+- Exports générés côté client uniquement
+- Compatible PWA pour installation mobile
