@@ -1,6 +1,10 @@
 /**
+<<<<<<< HEAD
+ * Types pour les données normatives NS 01-001
+=======
  * Types pour les données normatives multi-normes
  * Support: NS 01-001, NF C 15-100, IEC 60364, etc.
+>>>>>>> e05cba30849c3c7900a9fbc2790e87dba9b2816f
  */
 
 export interface NormRule {
@@ -9,9 +13,12 @@ export interface NormRule {
   article: string;
   content: string;
   page: number;
+<<<<<<< HEAD
+=======
   normId?: string; // Identifiant de la norme parente
   category?: string; // Catégorie optionnelle
   keywords?: string[]; // Mots-clés pour recherche
+>>>>>>> e05cba30849c3c7900a9fbc2790e87dba9b2816f
 }
 
 export interface SommaireNode {
@@ -25,7 +32,10 @@ export interface NormSearchResult {
   rule: NormRule;
   score: number;
   matchType: 'exact' | 'partial' | 'keyword';
+<<<<<<< HEAD
+=======
   normId?: string;
+>>>>>>> e05cba30849c3c7900a9fbc2790e87dba9b2816f
 }
 
 export interface NormDatabase {
@@ -35,6 +45,8 @@ export interface NormDatabase {
   ruleCount: number;
 }
 
+<<<<<<< HEAD
+=======
 /**
  * Métadonnées d'une norme importée
  */
@@ -84,11 +96,14 @@ export interface MultiNormDatabase {
   totalRuleCount: number;
 }
 
+>>>>>>> e05cba30849c3c7900a9fbc2790e87dba9b2816f
 export interface NormContext {
   selectedRules: NormRule[];
   searchQuery: string;
   selectedTitre: string | null;
   selectedArticle: string | null;
+<<<<<<< HEAD
+=======
   activeNormId?: string;
 }
 
@@ -104,4 +119,5 @@ export interface NormImportValidation {
     ruleCount: number;
     sampleRules: NormRule[];
   };
+>>>>>>> e05cba30849c3c7900a9fbc2790e87dba9b2816f
 }
