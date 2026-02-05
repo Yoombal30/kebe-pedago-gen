@@ -1,47 +1,39 @@
-import React, { useState, lazy, Suspense } from 'react';
-import { Bot, BookOpen, Settings, FileText, Zap, Upload, Wand2, HelpCircle, Info, LifeBuoy, History, Layout, BarChart3, Play, Sparkles, Database, GraduationCap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Bot, BookOpen, Settings, FileText, Zap, Upload, Wand2, HelpCircle, Info, LifeBuoy, History, Layout, BarChart3, Play, Sparkles, CheckCircle, Database, GraduationCap, ClipboardCheck } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { ChatInterface } from '@/components/ChatInterface';
+import { AdminPanel } from '@/components/AdminPanel';
+import { ModuleManager } from '@/components/ModuleManager';
+import { DocumentManager } from '@/components/DocumentManager';
+import { CourseGenerator } from '@/components/CourseGenerator';
+import { QCMManager } from '@/components/QCMManager';
+import { UserGuide } from '@/components/UserGuide';
+import { AppStatus } from '@/components/AppStatus';
 import { StatusIndicator } from '@/components/StatusIndicator';
+import { CourseHistory } from '@/components/CourseHistory';
+import { CourseTemplates } from '@/components/CourseTemplates';
+import { AnalyticsDashboard } from '@/components/AnalyticsDashboard';
+import { PresentationMode } from '@/components/PresentationMode';
+import { NormExplorer } from '@/components/NormExplorer';
+import { NormativeCourseGeneratorUI } from '@/components/NormativeCourseGenerator';
+import { InteractiveQCM } from '@/components/InteractiveQCM';
 import { ThemeLanguageSelector } from '@/components/ThemeLanguageSelector';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
+import { Badge } from '@/components/ui/badge';
 import { demoCourse } from '@/data/demoCourse';
 import { useKeyboardShortcuts, APP_SHORTCUTS } from '@/hooks/useKeyboardShortcuts';
-
-// Lazy loading des composants lourds pour améliorer les performances
-const ChatInterface = lazy(() => import('@/components/ChatInterface').then(m => ({ default: m.ChatInterface })));
-const AdminPanel = lazy(() => import('@/components/AdminPanel').then(m => ({ default: m.AdminPanel })));
-const ModuleManager = lazy(() => import('@/components/ModuleManager').then(m => ({ default: m.ModuleManager })));
-const DocumentManager = lazy(() => import('@/components/DocumentManager').then(m => ({ default: m.DocumentManager })));
-const CourseGenerator = lazy(() => import('@/components/CourseGenerator').then(m => ({ default: m.CourseGenerator })));
-const QCMManager = lazy(() => import('@/components/QCMManager').then(m => ({ default: m.QCMManager })));
-const UserGuide = lazy(() => import('@/components/UserGuide').then(m => ({ default: m.UserGuide })));
-const AppStatus = lazy(() => import('@/components/AppStatus').then(m => ({ default: m.AppStatus })));
-const CourseHistory = lazy(() => import('@/components/CourseHistory').then(m => ({ default: m.CourseHistory })));
-const CourseTemplates = lazy(() => import('@/components/CourseTemplates').then(m => ({ default: m.CourseTemplates })));
-const AnalyticsDashboard = lazy(() => import('@/components/AnalyticsDashboard').then(m => ({ default: m.AnalyticsDashboard })));
-const PresentationMode = lazy(() => import('@/components/PresentationMode').then(m => ({ default: m.PresentationMode })));
-const NormExplorer = lazy(() => import('@/components/NormExplorer').then(m => ({ default: m.NormExplorer })));
-const NormativeCourseGeneratorUI = lazy(() => import('@/components/NormativeCourseGenerator').then(m => ({ default: m.NormativeCourseGeneratorUI })));
-
-// Import du composant skeleton
-import { LoadingSkeleton } from '@/components/LoadingSkeleton';
-
-// Composant de fallback pour le chargement
-const LoadingFallback = () => <LoadingSkeleton variant="card" />;
-
 interface DashboardProps {
   onLaunchDemo: () => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onLaunchDemo }) => (
   <div className="p-6">
-    <header className="mb-8">
+    <div className="mb-8">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-primary/10 rounded-xl" aria-hidden="true">
+          <div className="p-3 bg-primary/10 rounded-xl">
             <Bot className="h-8 w-8 text-primary" />
           </div>
           <div>
@@ -51,26 +43,17 @@ const Dashboard: React.FC<DashboardProps> = ({ onLaunchDemo }) => (
             </p>
           </div>
         </div>
-        <Button
-          onClick={onLaunchDemo}
-          size="lg"
-          className="gap-2 hidden md:flex"
-          aria-label="Lancer la démo de présentation interactive"
-        >
-          <Play className="w-5 h-5" aria-hidden="true" />
+        <Button onClick={onLaunchDemo} size="lg" className="gap-2 hidden md:flex">
+          <Play className="w-5 h-5" />
           Démo Présentation
         </Button>
       </div>
-    </header>
+    </div>
 
     {/* Bannière mode robuste */}
-    <div
-      className="mb-6 p-4 bg-primary/10 border border-primary/30 rounded-lg"
-      role="status"
-      aria-label="Information sur le mode de fonctionnement"
-    >
+    <div className="mb-6 p-4 bg-primary/10 border border-primary/30 rounded-lg">
       <div className="flex items-start gap-3">
-        <Sparkles className="h-5 w-5 text-primary mt-0.5" aria-hidden="true" />
+        <Sparkles className="h-5 w-5 text-primary mt-0.5" />
         <div>
           <h3 className="font-semibold text-foreground">Mode robuste actif</h3>
           <p className="text-sm text-muted-foreground">
@@ -249,22 +232,20 @@ const Dashboard: React.FC<DashboardProps> = ({ onLaunchDemo }) => (
 
 const Index = () => {
   const [showDemoPresentation, setShowDemoPresentation] = useState(false);
+  const [showInteractiveQCM, setShowInteractiveQCM] = useState(false);
 
+  // Activer les raccourcis clavier globaux
   useKeyboardShortcuts(APP_SHORTCUTS);
 
   return (
-    <>
     <div className="min-h-screen bg-background">
       {/* Demo Presentation Mode */}
       {showDemoPresentation && (
-        <Suspense fallback={<LoadingFallback />}>
-          <PresentationMode
-            course={demoCourse}
-            onClose={() => setShowDemoPresentation(false)}
-          />
-        </Suspense>
+        <PresentationMode
+          course={demoCourse}
+          onClose={() => setShowDemoPresentation(false)}
+        />
       )}
-
       <Tabs defaultValue="dashboard" className="h-screen flex flex-col">
         <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="container">
@@ -344,92 +325,65 @@ const Index = () => {
           <TabsContent value="dashboard" className="m-0 h-full">
             <Dashboard onLaunchDemo={() => setShowDemoPresentation(true)} />
           </TabsContent>
-
+          
           <TabsContent value="chat" className="m-0 h-full p-6">
             <div className="max-w-4xl mx-auto h-full">
-              <Suspense fallback={<LoadingFallback />}>
-                <ChatInterface />
-              </Suspense>
+              <ChatInterface />
             </div>
           </TabsContent>
-
+          
           <TabsContent value="templates" className="m-0 h-full p-6">
-            <Suspense fallback={<LoadingFallback />}>
-              <CourseTemplates onSelectTemplate={(template) => {
-                console.log('Template selected:', template);
-              }} />
-            </Suspense>
+            <CourseTemplates onSelectTemplate={(template) => {
+              console.log('Template selected:', template);
+            }} />
           </TabsContent>
-
+          
           <TabsContent value="generator" className="m-0 h-full p-6">
-            <Suspense fallback={<LoadingFallback />}>
-              <CourseGenerator />
-            </Suspense>
+            <CourseGenerator />
           </TabsContent>
-
+          
           <TabsContent value="modules" className="m-0 h-full">
-            <Suspense fallback={<LoadingFallback />}>
-              <ModuleManager />
-            </Suspense>
+            <ModuleManager />
           </TabsContent>
-
+          
           <TabsContent value="documents" className="m-0 h-full">
-            <Suspense fallback={<LoadingFallback />}>
-              <DocumentManager />
-            </Suspense>
+            <DocumentManager />
           </TabsContent>
-
+          
           <TabsContent value="qcm" className="m-0 h-full">
-            <Suspense fallback={<LoadingFallback />}>
-              <QCMManager />
-            </Suspense>
+            <QCMManager />
           </TabsContent>
-
+          
           <TabsContent value="norm-generator" className="m-0 h-full p-6">
-            <Suspense fallback={<LoadingFallback />}>
-              <NormativeCourseGeneratorUI />
-            </Suspense>
+            <NormativeCourseGeneratorUI />
           </TabsContent>
-
+          
           <TabsContent value="norms" className="m-0 h-full p-6">
-            <Suspense fallback={<LoadingFallback />}>
-              <NormExplorer />
-            </Suspense>
+            <NormExplorer />
           </TabsContent>
-
+          
           <TabsContent value="history" className="m-0 h-full">
-            <Suspense fallback={<LoadingFallback />}>
-              <CourseHistory />
-            </Suspense>
+            <CourseHistory />
           </TabsContent>
-
+          
           <TabsContent value="analytics" className="m-0 h-full">
-            <Suspense fallback={<LoadingFallback />}>
-              <AnalyticsDashboard />
-            </Suspense>
+            <AnalyticsDashboard />
           </TabsContent>
-
+          
           <TabsContent value="guide" className="m-0 h-full">
-            <Suspense fallback={<LoadingFallback />}>
-              <UserGuide />
-            </Suspense>
+            <UserGuide />
           </TabsContent>
-
+          
           <TabsContent value="status" className="m-0 h-full">
-            <Suspense fallback={<LoadingFallback />}>
-              <AppStatus />
-            </Suspense>
+            <AppStatus />
           </TabsContent>
-
+          
           <TabsContent value="admin" className="m-0 h-full">
-            <Suspense fallback={<LoadingFallback />}>
-              <AdminPanel />
-            </Suspense>
+            <AdminPanel />
           </TabsContent>
         </div>
       </Tabs>
     </div>
-    </>
   );
 };
 

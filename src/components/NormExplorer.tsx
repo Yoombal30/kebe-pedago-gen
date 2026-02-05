@@ -1,13 +1,12 @@
 /**
  * Explorateur de normes NS 01-001
- * et normes importées (NF C 15-100, IEC 60364, etc.)
  * 
  * Permet de naviguer, rechercher et sélectionner des règles normatives
  * pour enrichir la génération de cours.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, BookOpen, ChevronRight, ChevronDown, FileText, AlertCircle, Loader2, Check, Filter, Database, Upload, Globe } from 'lucide-react';
+import { Search, BookOpen, ChevronRight, ChevronDown, FileText, AlertCircle, Loader2, Check, Filter, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,12 +15,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { normService } from '@/services/normService';
-import { multiNormService } from '@/services/multiNormService';
 import { NormRule, SommaireNode, NormSearchResult } from '@/types/norms';
-import { NormImporter } from './NormImporter';
 
 interface NormExplorerProps {
   onSelectRules?: (rules: NormRule[]) => void;
@@ -42,9 +38,6 @@ export const NormExplorer: React.FC<NormExplorerProps> = ({
   const [stats, setStats] = useState({ ruleCount: 0, loaded: false });
   const [currentPage, setCurrentPage] = useState(1);
   const [allRules, setAllRules] = useState<{ rules: NormRule[]; total: number; pages: number }>({ rules: [], total: 0, pages: 0 });
-  const [activeTab, setActiveTab] = useState('browse');
-  const [selectedNormId, setSelectedNormId] = useState<string>('ns-01-001');
-  const [availableNorms, setAvailableNorms] = useState<{ id: string; name: string; ruleCount: number }[]>([]);
 
   // Chargement initial des données
   useEffect(() => {
@@ -53,16 +46,10 @@ export const NormExplorer: React.FC<NormExplorerProps> = ({
       setLoadError(null);
       
       try {
-        // Charger NS 01-001 (norme par défaut)
         await normService.loadData();
         setSommaire(normService.getSommaire());
         setStats(normService.getStats());
         setAllRules(normService.getAllRules(1, 50));
-        
-        // Charger les normes importées
-        await multiNormService.loadSavedNorms();
-        updateAvailableNorms();
-        
         toast.success(`${normService.getStats().ruleCount} règles normatives chargées`);
       } catch (error) {
         console.error('Erreur chargement norme:', error);
@@ -76,43 +63,6 @@ export const NormExplorer: React.FC<NormExplorerProps> = ({
     loadData();
   }, []);
 
-  const updateAvailableNorms = () => {
-    const norms = [
-      { id: 'ns-01-001', name: 'NS 01-001', ruleCount: normService.getStats().ruleCount }
-    ];
-    
-    const imported = multiNormService.listNorms();
-    for (const norm of imported) {
-      norms.push({ id: norm.id, name: norm.name, ruleCount: norm.ruleCount });
-    }
-    
-    setAvailableNorms(norms);
-  };
-
-  const handleNormChange = (normId: string) => {
-    setSelectedNormId(normId);
-    setCurrentPage(1);
-    
-    if (normId === 'ns-01-001') {
-      setSommaire(normService.getSommaire());
-      setStats(normService.getStats());
-      setAllRules(normService.getAllRules(1, 50));
-    } else {
-      const db = multiNormService.getNormDatabase(normId);
-      if (db) {
-        setSommaire(db.sommaire);
-        setStats({ ruleCount: db.ruleCount, loaded: true });
-        const start = 0;
-        const pageSize = 50;
-        setAllRules({
-          rules: db.rules.slice(start, start + pageSize),
-          total: db.ruleCount,
-          pages: Math.ceil(db.ruleCount / pageSize)
-        });
-      }
-    }
-  };
-
   // Recherche avec debounce
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -121,24 +71,12 @@ export const NormExplorer: React.FC<NormExplorerProps> = ({
     }
 
     const timer = setTimeout(() => {
-      let results: NormSearchResult[];
-      
-      if (selectedNormId === 'ns-01-001') {
-        results = normService.searchRules(searchQuery, 30);
-      } else if (selectedNormId === 'all') {
-        // Recherche dans toutes les normes
-        const ns01Results = normService.searchRules(searchQuery, 15);
-        const multiResults = multiNormService.searchRules(searchQuery, undefined, 15);
-        results = [...ns01Results, ...multiResults].sort((a, b) => b.score - a.score).slice(0, 30);
-      } else {
-        results = multiNormService.searchRules(searchQuery, selectedNormId, 30);
-      }
-      
+      const results = normService.searchRules(searchQuery, 30);
       setSearchResults(results);
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, selectedNormId]);
+  }, [searchQuery]);
 
   const toggleNode = useCallback((index: string) => {
     setExpandedNodes(prev => {
@@ -181,26 +119,7 @@ export const NormExplorer: React.FC<NormExplorerProps> = ({
 
   const handleLoadPage = (page: number) => {
     setCurrentPage(page);
-    
-    if (selectedNormId === 'ns-01-001') {
-      setAllRules(normService.getAllRules(page, 50));
-    } else {
-      const db = multiNormService.getNormDatabase(selectedNormId);
-      if (db) {
-        const pageSize = 50;
-        const start = (page - 1) * pageSize;
-        setAllRules({
-          rules: db.rules.slice(start, start + pageSize),
-          total: db.ruleCount,
-          pages: Math.ceil(db.ruleCount / pageSize)
-        });
-      }
-    }
-  };
-
-  const handleImportSuccess = () => {
-    updateAvailableNorms();
-    setActiveTab('browse');
+    setAllRules(normService.getAllRules(page, 50));
   };
 
   const renderSommaireNode = (node: SommaireNode, depth: number = 0): React.ReactNode => {
@@ -311,95 +230,78 @@ export const NormExplorer: React.FC<NormExplorerProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Globe className="w-5 h-5" />
-                Base Normative
+                <Database className="w-5 h-5" />
+                Norme NS 01-001
               </CardTitle>
               <CardDescription>
-                {availableNorms.length} norme(s) • {stats.ruleCount} règles actives
+                {stats.ruleCount} règles de sécurité électrique
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
-              {selectionMode && selectedRules.size > 0 && (
-                <Button onClick={handleApplySelection} size="sm">
-                  <Check className="w-4 h-4 mr-2" />
-                  Appliquer ({selectedRules.size})
-                </Button>
-              )}
-            </div>
+            {selectionMode && selectedRules.size > 0 && (
+              <Button onClick={handleApplySelection}>
+                <Check className="w-4 h-4 mr-2" />
+                Appliquer ({selectedRules.size})
+              </Button>
+            )}
           </div>
         </CardHeader>
-        <CardContent className="pb-3 space-y-3">
-          {/* Sélecteur de norme */}
-          <div className="flex items-center gap-3">
-            <Select value={selectedNormId} onValueChange={handleNormChange}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Sélectionner une norme" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">
-                  <span className="flex items-center gap-2">
-                    <Globe className="w-4 h-4" />
-                    Toutes les normes
-                  </span>
-                </SelectItem>
-                {availableNorms.map((norm) => (
-                  <SelectItem key={norm.id} value={norm.id}>
-                    {norm.name} ({norm.ruleCount})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Rechercher par article, mot-clé, concept..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+        <CardContent className="pb-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher par article, mot-clé, concept..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
           </div>
         </CardContent>
       </Card>
 
-      {/* Onglets principaux */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="browse">
-            <Database className="w-4 h-4 mr-2" />
-            Explorer
-          </TabsTrigger>
-          <TabsTrigger value="import">
-            <Upload className="w-4 h-4 mr-2" />
-            Importer
-          </TabsTrigger>
-          <TabsTrigger value="sommaire">
-            <BookOpen className="w-4 h-4 mr-2" />
-            Sommaire
-          </TabsTrigger>
-        </TabsList>
+      {/* Résultats de recherche */}
+      {searchQuery && searchResults.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Filter className="w-4 h-4" />
+              Résultats ({searchResults.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[400px]">
+              {searchResults.map(result => renderRuleCard(result.rule, result.matchType))}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      )}
 
-        <TabsContent value="browse" className="space-y-4">
-          {/* Résultats de recherche */}
-          {searchQuery && searchResults.length > 0 && (
+      {/* Navigation et contenu */}
+      {!searchQuery && (
+        <Tabs defaultValue="sommaire" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="sommaire">
+              <BookOpen className="w-4 h-4 mr-2" />
+              Sommaire
+            </TabsTrigger>
+            <TabsTrigger value="all">
+              <FileText className="w-4 h-4 mr-2" />
+              Toutes les règles
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="sommaire">
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Filter className="w-4 h-4" />
-                  Résultats ({searchResults.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[400px]">
-                  {searchResults.map(result => renderRuleCard(result.rule, result.matchType))}
+              <CardContent className="p-0">
+                <ScrollArea className="h-[500px]">
+                  <div className="p-4">
+                    {sommaire.map(node => renderSommaireNode(node))}
+                  </div>
                 </ScrollArea>
               </CardContent>
             </Card>
-          )}
+          </TabsContent>
 
-          {/* Liste paginée */}
-          {!searchQuery && (
+          <TabsContent value="all">
             <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
@@ -432,43 +334,19 @@ export const NormExplorer: React.FC<NormExplorerProps> = ({
                 </ScrollArea>
               </CardContent>
             </Card>
-          )}
+          </TabsContent>
+        </Tabs>
+      )}
 
-          {/* Message si aucun résultat */}
-          {searchQuery && searchResults.length === 0 && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Aucune règle trouvée pour "{searchQuery}". Essayez un autre terme.
-              </AlertDescription>
-            </Alert>
-          )}
-        </TabsContent>
-
-        <TabsContent value="import">
-          <NormImporter onImportSuccess={handleImportSuccess} />
-        </TabsContent>
-
-        <TabsContent value="sommaire">
-          <Card>
-            <CardContent className="p-0">
-              {sommaire.length > 0 ? (
-                <ScrollArea className="h-[500px]">
-                  <div className="p-4">
-                    {sommaire.map(node => renderSommaireNode(node))}
-                  </div>
-                </ScrollArea>
-              ) : (
-                <div className="p-8 text-center text-muted-foreground">
-                  <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Aucun sommaire disponible pour cette norme.</p>
-                  <p className="text-sm mt-2">Le sommaire est optionnel lors de l'import.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      {/* Message si aucun résultat */}
+      {searchQuery && searchResults.length === 0 && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Aucune règle trouvée pour "{searchQuery}". Essayez un autre terme.
+          </AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 };
